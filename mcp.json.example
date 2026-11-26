@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "frameparse": {
+      "command": "node",
+      "args": ["/agent/dist/src/cli.js", "mcp"]
+    },
+    "frameparse-http": {
+      "url": "http://127.0.0.1:4173/mcp"
+    }
+  }
+}

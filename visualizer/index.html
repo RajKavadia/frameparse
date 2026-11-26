@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FrameParse 3D — 4-Layer Webpage Frame Visualizer</title>
+  <style>
+    :root {
+      --bg: #070b14;
+      --panel: #0d1424;
+      --panel-2: #121c31;
+      --border: rgba(148, 163, 184, 0.16);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --f1: #10b981; /* Structure: Emerald */
+      --f2: #38bdf8; /* Text: Sky */
+      --f3: #f59e0b; /* Interactables: Amber */
+      --f4: #a855f7; /* Actions: Violet */
+      --danger: #f43f5e;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 25%, #111a30 0%, var(--bg) 72%);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 58px 1fr;
+      grid-template-columns: 280px 1fr 330px;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* TOP BAR */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      background: rgba(13, 20, 36, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      z-index: 30;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      margin-right: 6px;
+    }
+    .brand-badge {
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      background: linear-gradient(135deg, rgba(16,185,129,0.22), rgba(168,85,247,0.28));
+      border: 1px solid rgba(168,85,247,0.45);
+      color: #e9d5ff;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    input[type="text"], select, textarea {
+      background: #080e1c;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-family: var(--font);
+      font-size: 12.5px;
+      outline: none;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      border-color: rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.14);
+    }
+
+    .url-input { flex: 1; min-width: 180px; }
+
+    button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    button:hover {
+      background: #1a2742;
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+    button.primary {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      border-color: rgba(168, 85, 247, 0.5);
+      color: #fff;
+    }
+    button.primary:hover { filter: brightness(1.1); }
+    button.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.6);
+      color: #bae6fd;
+    }
+
+    .telemetry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 4px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .pill strong { color: var(--text); }
+
+    /* SIDEBARS */
+    .sidebar {
+      background: rgba(13, 20, 36, 0.88);
+      border-right: 1px solid var(--border);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 20;
+    }
+    .inspector {
+      background: rgba(13, 20, 36, 0.88);
+      border-left: 1px solid var(--border);
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 20;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+    .control-label span:last-child {
+      font-family: var(--mono);
+      color: var(--text);
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+
+    /* LAYER CONTROLS */
+    .layer-card {
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: rgba(8, 14, 28, 0.78);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      transition: border-color 0.15s;
+    }
+    .layer-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .layer-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .layer-name {
+      font-weight: 600;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+    }
+    .layer-count {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .layer-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* 3D STAGE */
+    .stage-wrap {
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.06), transparent 60%),
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 36px 36px, 36px 36px;
+    }
+    .stage-wrap:active { cursor: grabbing; }
+
+    .stage-hud {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      pointer-events: none;
+      z-index: 15;
+    }
+    .hud-chip {
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(7, 11, 20, 0.8);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+      backdrop-filter: blur(6px);
+    }
+
+    .beam-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .scene-viewport {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 1800px;
+      perspective-origin: 50% 48%;
+    }
+
+    .scene-root {
+      position: relative;
+      width: 660px;
+      height: 440px;
+      transform-style: preserve-3d;
+      transition: transform 0.06s linear;
+    }
+    .scene-root.smooth {
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* 3D FRAME PLANES */
+    .frame-plane {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transform-style: preserve-3d;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, box-shadow 0.25s ease;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .frame-plane[data-layer="1"] {
+      background: rgba(6, 26, 22, 0.74);
+      border: 1.5px solid rgba(16, 185, 129, 0.55);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 0 32px rgba(16, 185, 129, 0.08);
+    }
+    .frame-plane[data-layer="2"] {
+      background: rgba(8, 23, 40, 0.62);
+      border: 1.5px solid rgba(56, 189, 248, 0.55);
+      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.4), inset 0 0 28px rgba(56, 189, 248, 0.08);
+    }
+    .frame-plane[data-layer="3"] {
+      background: rgba(33, 22, 8, 0.58);
+      border: 1.5px solid rgba(245, 158, 11, 0.55);
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35), inset 0 0 28px rgba(245, 158, 11, 0.08);
+    }
+    .frame-plane[data-layer="4"] {
+      background: rgba(28, 12, 42, 0.56);
+      border: 1.5px solid rgba(168, 85, 247, 0.6);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35), inset 0 0 30px rgba(168, 85, 247, 0.1);
+    }
+
+    .frame-plane.peeled {
+      pointer-events: none;
+      opacity: 0 !important;
+    }
+
+    .plane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+      flex-shrink: 0;
+    }
+    .plane-title {
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .plane-meta {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .plane-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 6px;
+      padding-right: 4px;
+    }
+    .plane-body::-webkit-scrollbar { width: 4px; }
+    .plane-body::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 4px;
+    }
+
+    /* NODES INSIDE 3D PLANES */
+    .node-chip {
+      position: relative;
+      padding: 6px 8px;
+      border-radius: 7px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, opacity 0.2s, box-shadow 0.2s, background 0.15s;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .node-chip:hover {
+      transform: translateZ(10px) scale(1.03);
+      border-color: #fff;
+      z-index: 5;
+    }
+    .node-chip.dimmed {
+      opacity: 0.16;
+    }
+    .node-chip.highlighted {
+      opacity: 1 !important;
+      transform: translateZ(14px) scale(1.04);
+      box-shadow: 0 0 0 2px currentColor, 0 0 18px currentColor;
+      background: rgba(15, 23, 42, 0.96);
+      z-index: 8;
+    }
+    .node-chip.selected {
+      box-shadow: 0 0 0 2px #fff, 0 0 22px currentColor;
+    }
+
+    .node-f1 { color: var(--f1); min-width: 140px; flex: 1 1 180px; }
+    .node-f2 { color: var(--f2); flex: 1 1 190px; }
+    .node-f3 { color: var(--f3); flex: 0 1 auto; min-width: 135px; }
+    .node-f4 { color: var(--f4); flex: 1 1 200px; }
+    .node-f4.destructive { color: var(--danger); border-color: rgba(244, 63, 94, 0.45); }
+
+    .node-top {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+    .node-id {
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .node-tag {
+      opacity: 0.85;
+      font-weight: 600;
+    }
+    .node-ref {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 9.5px;
+    }
+    .node-label {
+      color: #f1f5f9;
+      font-size: 11px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .node-sub {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* INSPECTOR */
+    .lineage-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(8, 14, 28, 0.85);
+      border: 1px solid var(--border);
+    }
+    .lineage-pill {
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .lineage-pill.l1 { background: rgba(16,185,129,0.16); color: #6ee7b7; border-color: rgba(16,185,129,0.35); }
+    .lineage-pill.l2 { background: rgba(56,189,248,0.16); color: #7dd3fc; border-color: rgba(56,189,248,0.35); }
+    .lineage-pill.l3 { background: rgba(245,158,11,0.16); color: #fcd34d; border-color: rgba(245,158,11,0.35); }
+    .lineage-pill.l4 { background: rgba(168,85,247,0.18); color: #d8b4fe; border-color: rgba(168,85,247,0.4); }
+
+    .detail-box {
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(8, 14, 28, 0.85);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .kv-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      padding-bottom: 4px;
+    }
+    .kv-row span:first-child { color: var(--muted); }
+    .kv-row span:last-child {
+      font-family: var(--mono);
+      color: var(--text);
+      text-align: right;
+      word-break: break-all;
+    }
+
+    pre.code-view {
+      margin: 0;
+      padding: 10px;
+      border-radius: 8px;
+      background: #060a14;
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: #cbd5e1;
+      overflow: auto;
+      max-height: 260px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .plan-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .plan-item {
+      padding: 7px 8px;
+      border-radius: 7px;
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      cursor: pointer;
+      font-size: 11.5px;
+    }
+    .plan-item:hover {
+      background: rgba(168, 85, 247, 0.22);
+    }
+
+    /* HTML MODAL */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 15, 0.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: min(700px, 92vw);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .modal textarea {
+      width: 100%;
+      height: 260px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      resize: vertical;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .status-banner {
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 11.5px;
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      color: #fda4af;
+      display: none;
+    }
+    .status-banner.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="brand">
+        <span>FrameParse 3D</span>
+        <span class="brand-badge">ZERO-AI</span>
+      </div>
+
+      <div class="input-group">
+        <select id="fixtureSelect" title="Load sample webpage">
+          <option value="ecommerce">Sample: E-Commerce Product</option>
+          <option value="dashboard">Sample: SaaS Dashboard</option>
+          <option value="dashboard-after">Sample: Post-Login State</option>
+        </select>
+        <input id="urlInput" class="url-input" type="text" placeholder="Pass any webpage URL (https://...) and click Parse" />
+        <button id="parseUrlBtn" class="primary">Parse URL</button>
+        <button id="pasteHtmlBtn">Paste HTML</button>
+      </div>
+
+      <div class="telemetry">
+        <span class="pill">Parse: <strong id="statMs">-</strong></span>
+        <span class="pill">Raw: <strong id="statRaw">-</strong></span>
+        <span class="pill">F1: <strong id="statF1">-</strong></span>
+        <span class="pill">Ratio: <strong id="statRatio">-</strong></span>
+      </div>
+    </header>
+
+    <!-- LEFT CONTROLS -->
+    <aside class="sidebar">
+      <div id="errorBanner" class="status-banner"></div>
+
+      <div>
+        <div class="section-title">3D Camera Presets</div>
+        <div class="preset-grid">
+          <button data-preset="iso" class="active">Isometric 3D</button>
+          <button data-preset="explode">Deep Explode</button>
+          <button data-preset="side">Side Cutaway</button>
+          <button data-preset="xray">Top-Down X-Ray</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">See Beneath Controls</div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Peel Upper Frames</span>
+            <span id="peelVal">All 4 Visible</span>
+          </div>
+          <input id="peelSlider" type="range" min="1" max="4" step="1" value="4" />
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Z-Axis Layer Gap</span>
+            <span id="gapVal">115px</span>
+          </div>
+          <input id="gapSlider" type="range" min="0" max="240" step="5" value="115" />
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Tilt (Rotate X)</span>
+            <span id="rotXVal">54°</span>
+          </div>
+          <input id="rotXSlider" type="range" min="0" max="82" step="1" value="54" />
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Spin (Rotate Z)</span>
+            <span id="rotZVal">-28°</span>
+          </div>
+          <input id="rotZSlider" type="range" min="-180" max="180" step="1" value="-28" />
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Zoom</span>
+            <span id="zoomVal">0.95x</span>
+          </div>
+          <input id="zoomSlider" type="range" min="0.45" max="1.5" step="0.05" value="0.95" />
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Frame Stack (Top → Base)</div>
+
+        <div class="layer-card" data-layer-ctrl="4">
+          <div class="layer-card-header">
+            <label class="layer-toggle">
+              <input type="checkbox" checked data-vis="4" />
+              <span class="layer-name"><span class="layer-dot" style="background:var(--f4)"></span>4. Actions</span>
+            </label>
+            <span class="layer-count" id="count4">0</span>
+          </div>
+          <input type="range" min="0.1" max="1" step="0.05" value="0.92" data-op="4" />
+        </div>
+
+        <div class="layer-card" data-layer-ctrl="3">
+          <div class="layer-card-header">
+            <label class="layer-toggle">
+              <input type="checkbox" checked data-vis="3" />
+              <span class="layer-name"><span class="layer-dot" style="background:var(--f3)"></span>3. Interactables</span>
+            </label>
+            <span class="layer-count" id="count3">0</span>
+          </div>
+          <input type="range" min="0.1" max="1" step="0.05" value="0.92" data-op="3" />
+        </div>
+
+        <div class="layer-card" data-layer-ctrl="2">
+          <div class="layer-card-header">
+            <label class="layer-toggle">
+              <input type="checkbox" checked data-vis="2" />
+              <span class="layer-name"><span class="layer-dot" style="background:var(--f2)"></span>2. Text</span>
+            </label>
+            <span class="layer-count" id="count2">0</span>
+          </div>
+          <input type="range" min="0.1" max="1" step="0.05" value="0.92" data-op="2" />
+        </div>
+
+        <div class="layer-card" data-layer-ctrl="1">
+          <div class="layer-card-header">
+            <label class="layer-toggle">
+              <input type="checkbox" checked data-vis="1" />
+              <span class="layer-name"><span class="layer-dot" style="background:var(--f1)"></span>1. Structure</span>
+            </label>
+            <span class="layer-count" id="count1">0</span>
+          </div>
+          <input type="range" min="0.1" max="1" step="0.05" value="0.98" data-op="1" />
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Zero-AI Action Planner</div>
+        <div style="display:flex; gap:6px;">
+          <input id="goalInput" type="text" placeholder="e.g. search for laptops" style="flex:1; min-width:0;" />
+          <button id="planBtn">Plan</button>
+        </div>
+        <div id="planResults" class="plan-list"></div>
+      </div>
+    </aside>
+
+    <!-- 3D VIEWPORT -->
+    <main id="stageWrap" class="stage-wrap">
+      <svg id="beamSvg" class="beam-svg"></svg>
+      <div class="scene-viewport">
+        <div id="sceneRoot" class="scene-root smooth">
+          <section class="frame-plane" data-layer="1">
+            <div class="plane-header">
+              <div class="plane-title" style="color:var(--f1)">
+                <span>Frame 1 — Structure</span>
+              </div>
+              <div class="plane-meta" id="meta1">Landmarks &amp; Outline</div>
+            </div>
+            <div class="plane-body" id="body1"></div>
+          </section>
+
+          <section class="frame-plane" data-layer="2">
+            <div class="plane-header">
+              <div class="plane-title" style="color:var(--f2)">
+                <span>Frame 2 — Text</span>
+              </div>
+              <div class="plane-meta" id="meta2">Region-Anchored Content</div>
+            </div>
+            <div class="plane-body" id="body2"></div>
+          </section>
+
+          <section class="frame-plane" data-layer="3">
+            <div class="plane-header">
+              <div class="plane-title" style="color:var(--f3)">
+                <span>Frame 3 — Interactables</span>
+              </div>
+              <div class="plane-meta" id="meta3">Controls &amp; Selectors</div>
+            </div>
+            <div class="plane-body" id="body3"></div>
+          </section>
+
+          <section class="frame-plane" data-layer="4">
+            <div class="plane-header">
+              <div class="plane-title" style="color:var(--f4)">
+                <span>Frame 4 — Actions</span>
+              </div>
+              <div class="plane-meta" id="meta4">Workflows &amp; Effects</div>
+            </div>
+            <div class="plane-body" id="body4"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="stage-hud">
+        <span class="hud-chip">Drag to Orbit 3D</span>
+        <span class="hud-chip">Scroll to Zoom</span>
+        <span class="hud-chip">Click any node to X-Ray what's beneath it</span>
+        <button id="clearSelectionBtn" style="pointer-events:auto; padding:4px 9px; font-size:11px; display:none;">Clear X-Ray</button>
+      </div>
+    </main>
+
+    <!-- RIGHT INSPECTOR -->
+    <aside class="inspector">
+      <div class="section-title">
+        <span>Cross-Layer Inspector</span>
+        <button id="toggleWireBtn" style="padding:3px 7px; font-size:10.5px;">AI Wire View</button>
+      </div>
+
+      <div id="inspectorEmpty" class="detail-box" style="color:var(--muted); line-height:1.5;">
+        Click or hover any element on <strong style="color:var(--f4)">Frame 4</strong>, <strong style="color:var(--f3)">Frame 3</strong>, <strong style="color:var(--f2)">Frame 2</strong>, or <strong style="color:var(--f1)">Frame 1</strong> to illuminate its vertical lineage and inspect everything beneath it.
+      </div>
+
+      <div id="inspectorContent" style="display:none; flex-direction:column; gap:10px;">
+        <div>
+          <div class="section-title" style="margin-bottom:5px;">Vertical Lineage (Base → Action)</div>
+          <div id="lineageBar" class="lineage-bar"></div>
+        </div>
+
+        <div id="detailBox" class="detail-box"></div>
+
+        <div>
+          <div class="section-title" style="margin-bottom:5px;" id="rawBoxTitle">Node Payload</div>
+          <pre id="rawCodeView" class="code-view"></pre>
+        </div>
+      </div>
+
+      <div id="wireContainer" style="display:none; flex-direction:column; gap:8px;">
+        <div class="section-title" style="margin-bottom:2px;">Compact AI Wire Format</div>
+        <pre id="wireCodeView" class="code-view" style="max-height:520px;"></pre>
+      </div>
+    </aside>
+  </div>
+
+  <!-- PASTE HTML MODAL -->
+  <div id="htmlModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="section-title" style="margin:0;">Paste Raw Webpage HTML</div>
+      <input id="modalBaseUrl" type="text" placeholder="Optional base URL (e.g. https://example.com)" />
+      <textarea id="modalHtmlInput" placeholder="<!DOCTYPE html><html>..."></textarea>
+      <div class="modal-actions">
+        <button id="cancelModalBtn">Cancel</button>
+        <button id="submitHtmlBtn" class="primary">Parse into 4 Frames</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      data: null, // { parsed, planned, aiText }
+      sourcePayload: { fixture: "ecommerce" },
+      rotX: 54,
+      rotZ: -28,
+      zoom: 0.95,
+      gap: 115,
+      peelMax: 4,
+      visibility: { 1: true, 2: true, 3: true, 4: true },
+      opacity: { 1: 0.98, 2: 0.92, 3: 0.92, 4: 0.92 },
+      selectedKey: null, // e.g. "4:w1"
+      hoveredKey: null,
+      showWire: false,
+      nodeIndex: new Map(), // key -> { layer, id, item, structureId, targetIds }
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const sceneRoot = $("sceneRoot");
+    const stageWrap = $("stageWrap");
+    const beamSvg = $("beamSvg");
+
+    function updateCamera(smooth = false) {
+      sceneRoot.classList.toggle("smooth", smooth);
+      sceneRoot.style.transform =
+        `scale(${state.zoom}) rotateX(${state.rotX}deg) rotateZ(${state.rotZ}deg)`;
+
+      $("rotXSlider").value = state.rotX;
+      $("rotXVal").textContent = `${Math.round(state.rotX)}°`;
+      $("rotZSlider").value = state.rotZ;
+      $("rotZVal").textContent = `${Math.round(state.rotZ)}°`;
+      $("zoomSlider").value = state.zoom;
+      $("zoomVal").textContent = `${state.zoom.toFixed(2)}x`;
+      $("gapSlider").value = state.gap;
+      $("gapVal").textContent = `${state.gap}px`;
+      $("peelSlider").value = state.peelMax;
+      $("peelVal").textContent =
+        state.peelMax === 4 ? "All 4 Visible" : `Frames 1–${state.peelMax} (Peeled)`;
+
+      document.querySelectorAll(".frame-plane").forEach((plane) => {
+        const layer = Number(plane.dataset.layer);
+        const z = (layer - 2.5) * state.gap;
+        const peeled = layer > state.peelMax || !state.visibility[layer];
+        plane.classList.toggle("peeled", peeled);
+        const extraLift = peeled ? 120 : 0;
+        plane.style.transform = `translateZ(${z + extraLift}px)`;
+        if (!peeled) {
+          plane.style.opacity = String(state.opacity[layer]);
+        }
+      });
+
+      requestAnimationFrame(drawBeams);
+    }
+
+    function applyPreset(name) {
+      document.querySelectorAll("[data-preset]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.preset === name);
+      });
+      if (name === "iso") {
+        state.rotX = 54; state.rotZ = -28; state.gap = 115; state.zoom = 0.95; state.peelMax = 4;
+      } else if (name === "explode") {
+        state.rotX = 62; state.rotZ = -35; state.gap = 195; state.zoom = 0.82; state.peelMax = 4;
+      } else if (name === "side") {
+        state.rotX = 76; state.rotZ = -12; state.gap = 170; state.zoom = 0.9; state.peelMax = 4;
+      } else if (name === "xray") {
+        state.rotX = 12; state.rotZ = 0; state.gap = 55; state.zoom = 1.02; state.peelMax = 4;
+        state.opacity = { 1: 0.95, 2: 0.65, 3: 0.65, 4: 0.65 };
+        document.querySelectorAll("[data-op]").forEach((el) => {
+          el.value = state.opacity[Number(el.dataset.op)];
+        });
+      }
+      updateCamera(true);
+    }
+
+    // Orbit dragging
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    stageWrap.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".node-chip") || e.target.closest("button")) return;
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      state.rotZ = Math.max(-180, Math.min(180, state.rotZ - dx * 0.4));
+      state.rotX = Math.max(0, Math.min(82, state.rotX - dy * 0.35));
+      updateCamera(false);
+    });
+    window.addEventListener("mouseup", () => { dragging = false; });
+    stageWrap.addEventListener("wheel", (e) => {
+      if (e.target.closest(".plane-body")) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      state.zoom = Math.max(0.45, Math.min(1.5, Number((state.zoom + delta).toFixed(2))));
+      updateCamera(false);
+    }, { passive: false });
+
+    // Compute full vertical lineage across all 4 frames for any given node key
+    function computeLineage(key) {
+      const entry = state.nodeIndex.get(key);
+      if (!entry || !state.data) return null;
+      const { frame1, frame2, frame3, frame4 } = state.data.parsed;
+
+      const sIds = new Set();
+      const tIds = new Set();
+      const iIds = new Set();
+      const aIds = new Set();
+
+      const addStructureAncestorsAndDescendants = (sid, includeDescendants) => {
+        if (!sid) return;
+        sIds.add(sid);
+        // Walk ancestors
+        let cur = frame1.landmarks.find((l) => l.id === sid);
+        while (cur && cur.parentId) {
+          sIds.add(cur.parentId);
+          cur = frame1.landmarks.find((l) => l.id === cur.parentId);
+        }
+        if (includeDescendants) {
+          const queue = [sid];
+          while (queue.length) {
+            const id = queue.shift();
+            const lm = frame1.landmarks.find((l) => l.id === id);
+            if (lm) {
+              for (const child of lm.children) {
+                if (!sIds.has(child)) {
+                  sIds.add(child);
+                  queue.push(child);
+                }
+              }
+            }
+          }
+        }
+      };
+
+      const allActions = [...(frame4?.workflows || []), ...(frame4?.actions || [])];
+
+      if (entry.layer === 1) {
+        addStructureAncestorsAndDescendants(entry.id, true);
+        (frame2?.blocks || []).forEach((b) => { if (sIds.has(b.structureId)) tIds.add(b.id); });
+        (frame3?.elements || []).forEach((el) => { if (sIds.has(el.structureId)) iIds.add(el.id); });
+        allActions.forEach((a) => { if (sIds.has(a.structureId)) aIds.add(a.id); });
+      } else if (entry.layer === 2) {
+        tIds.add(entry.id);
+        addStructureAncestorsAndDescendants(entry.item.structureId, false);
+        (entry.item.linkedInteractableIds || []).forEach((iid) => iIds.add(iid));
+        allActions.forEach((a) => {
+          if (iIds.has(a.targetId) || a.steps.some((st) => iIds.has(st.ref))) aIds.add(a.id);
+        });
+      } else if (entry.layer === 3) {
+        iIds.add(entry.id);
+        if (entry.item.formId) iIds.add(entry.item.formId);
+        addStructureAncestorsAndDescendants(entry.item.structureId, false);
+        (frame2?.blocks || []).forEach((b) => {
+          if (b.structureId === entry.item.structureId || (b.linkedInteractableIds || []).includes(entry.id)) {
+            tIds.add(b.id);
+          }
+        });
+        allActions.forEach((a) => {
+          if (a.targetId === entry.id || a.steps.some((st) => st.ref === entry.id)) aIds.add(a.id);
+        });
+      } else if (entry.layer === 4) {
+        aIds.add(entry.id);
+        addStructureAncestorsAndDescendants(entry.item.structureId, false);
+        iIds.add(entry.item.targetId);
+        (entry.item.steps || []).forEach((st) => iIds.add(st.ref));
+        (entry.item.parameters || []).forEach((p) => iIds.add(p.interactableId));
+        (frame2?.blocks || []).forEach((b) => {
+          if (
+            b.structureId === entry.item.structureId ||
+            (b.linkedInteractableIds || []).some((id) => iIds.has(id))
+          ) {
+            tIds.add(b.id);
+          }
+        });
+      }
+
+      return { sIds, tIds, iIds, aIds };
+    }
+
+    function applyHighlight() {
+      const activeKey = state.hoveredKey || state.selectedKey;
+      $("clearSelectionBtn").style.display = state.selectedKey ? "inline-block" : "none";
+
+      if (!activeKey) {
+        document.querySelectorAll(".node-chip").forEach((el) => {
+          el.classList.remove("dimmed", "highlighted", "selected");
+        });
+        beamSvg.innerHTML = "";
+        return;
+      }
+
+      const lineage = computeLineage(activeKey);
+      if (!lineage) return;
+
+      document.querySelectorAll(".node-chip").forEach((el) => {
+        const layer = Number(el.dataset.layer);
+        const id = el.dataset.id;
+        const key = `${layer}:${id}`;
+        const inLineage =
+          (layer === 1 && lineage.sIds.has(id)) ||
+          (layer === 2 && lineage.tIds.has(id)) ||
+          (layer === 3 && lineage.iIds.has(id)) ||
+          (layer === 4 && lineage.aIds.has(id));
+
+        el.classList.toggle("highlighted", inLineage);
+        el.classList.toggle("dimmed", !inLineage);
+        el.classList.toggle("selected", key === state.selectedKey);
+      });
+
+      requestAnimationFrame(drawBeams);
+    }
+
+    // Draws glowing vertical X-ray beams connecting highlighted nodes across layers
+    function drawBeams() {
+      const activeKey = state.hoveredKey || state.selectedKey;
+      if (!activeKey) {
+        beamSvg.innerHTML = "";
+        return;
+      }
+
+      const stageRect = stageWrap.getBoundingClientRect();
+      const byLayer = { 1: [], 2: [], 3: [], 4: [] };
+      document.querySelectorAll(".node-chip.highlighted").forEach((el) => {
+        const layer = Number(el.dataset.layer);
+        if (layer > state.peelMax || !state.visibility[layer]) return;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        byLayer[layer].push({
+          x: r.left + r.width / 2 - stageRect.left,
+          y: r.top + r.height / 2 - stageRect.top,
+        });
+      });
+
+      const colors = { 1: "#10b981", 2: "#38bdf8", 3: "#f59e0b", 4: "#a855f7" };
+      const lines = [];
+      const visibleLayers = [1, 2, 3, 4].filter((l) => byLayer[l].length > 0);
+
+      for (let idx = 0; idx < visibleLayers.length - 1; idx++) {
+        const lower = visibleLayers[idx];
+        const upper = visibleLayers[idx + 1];
+        const lowerPts = byLayer[lower].slice(0, 4);
+        const upperPts = byLayer[upper].slice(0, 4);
+        for (const u of upperPts) {
+          // Connect to nearest lower node
+          let best = lowerPts[0];
+          let bestDist = Infinity;
+          for (const l of lowerPts) {
+            const d = Math.hypot(u.x - l.x, u.y - l.y);
+            if (d < bestDist) { bestDist = d; best = l; }
+          }
+          if (best) {
+            lines.push(
+              `<line x1="${u.x.toFixed(1)}" y1="${u.y.toFixed(1)}" x2="${best.x.toFixed(1)}" y2="${best.y.toFixed(1)}" stroke="${colors[upper]}" stroke-width="1.6" stroke-dasharray="4 4" stroke-opacity="0.7" />`,
+              `<circle cx="${u.x.toFixed(1)}" cy="${u.y.toFixed(1)}" r="3.2" fill="${colors[upper]}" />`,
+              `<circle cx="${best.x.toFixed(1)}" cy="${best.y.toFixed(1)}" r="3.2" fill="${colors[lower]}" />`
+            );
+          }
+        }
+      }
+
+      beamSvg.innerHTML = lines.join("");
+    }
+
+    function renderInspector(key) {
+      if (!key || !state.nodeIndex.has(key)) {
+        $("inspectorEmpty").style.display = state.showWire ? "none" : "block";
+        $("inspectorContent").style.display = "none";
+        return;
+      }
+      const entry = state.nodeIndex.get(key);
+      const lineage = computeLineage(key);
+      $("inspectorEmpty").style.display = "none";
+      $("inspectorContent").style.display = state.showWire ? "none" : "flex";
+
+      const bar = $("lineageBar");
+      bar.innerHTML = "";
+      const addPills = (ids, layer, cls) => {
+        [...ids].slice(0, 8).forEach((id) => {
+          const pill = document.createElement("span");
+          pill.className = `lineage-pill ${cls}`;
+          pill.textContent = id;
+          pill.title = `Jump to Frame ${layer}: ${id}`;
+          pill.onclick = () => selectNode(`${layer}:${id}`);
+          bar.appendChild(pill);
+        });
+      };
+      addPills(lineage.sIds, 1, "l1");
+      addPills(lineage.tIds, 2, "l2");
+      addPills(lineage.iIds, 3, "l3");
+      addPills(lineage.aIds, 4, "l4");
+
+      const detail = $("detailBox");
+      const item = entry.item;
+      const rows = [];
+      if (entry.layer === 1) {
+        rows.push(["Layer", "Frame 1 — Structure"]);
+        rows.push(["ID / Role", `${item.id} [${item.role}] <${item.tag}>`]);
+        rows.push(["Label", item.label]);
+        rows.push(["Stats", `${item.stats.textBlocks} txt, ${item.stats.wordCount}w, ${item.stats.interactables} int`]);
+        rows.push(["Selector", item.selector]);
+      } else if (entry.layer === 2) {
+        rows.push(["Layer", "Frame 2 — Text"]);
+        rows.push(["ID / Kind", `${item.id} [${item.kind}] @${item.structureId}`]);
+        rows.push(["Words", String(item.wordCount)]);
+        rows.push(["Content", item.text]);
+      } else if (entry.layer === 3) {
+        rows.push(["Layer", "Frame 3 — Interactables"]);
+        rows.push(["ID / Kind", `${item.id} [${item.kind}] @${item.structureId}`]);
+        rows.push(["Name", item.name]);
+        rows.push(["Selector", item.selector]);
+        if (item.href) rows.push(["Href", item.href]);
+        if (item.formId) rows.push(["Form", item.formId]);
+        rows.push(["State", JSON.stringify(item.state)]);
+      } else if (entry.layer === 4) {
+        rows.push(["Layer", "Frame 4 — Actions"]);
+        rows.push(["ID / Type", `${item.id} (${item.isWorkflow ? "Workflow" : "Atomic"})`]);
+        rows.push(["Category / Effect", `${item.category} | ${item.effect.toUpperCase()}`]);
+        rows.push(["Summary", item.summary]);
+        if (item.preconditions.length) rows.push(["Preconditions", item.preconditions.join("; ")]);
+        rows.push(["Steps", item.steps.map((s) => `${s.op}(${s.ref})`).join(" -> ")]);
+      }
+
+      detail.innerHTML = rows
+        .map(([k, v]) => `<div class="kv-row"><span>${escapeHtml(k)}</span><span>${escapeHtml(String(v))}</span></div>`)
+        .join("");
+
+      $("rawBoxTitle").textContent = `Frame ${entry.layer} JSON (${entry.id})`;
+      $("rawCodeView").textContent = JSON.stringify(item, null, 2);
+    }
+
+    function selectNode(key) {
+      state.selectedKey = key;
+      applyHighlight();
+      renderInspector(key);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function makeNodeChip(layer, id, cls, tag, ref, label, sub, item) {
+      const key = `${layer}:${id}`;
+      state.nodeIndex.set(key, { layer, id, item });
+
+      const div = document.createElement("div");
+      div.className = `node-chip ${cls}`;
+      div.dataset.layer = String(layer);
+      div.dataset.id = id;
+      div.innerHTML = `
+        <div class="node-top">
+          <span class="node-id">${escapeHtml(id)}</span>
+          <span class="node-tag">${escapeHtml(tag)}</span>
+          <span class="node-ref">${escapeHtml(ref)}</span>
+        </div>
+        <div class="node-label">${escapeHtml(label)}</div>
+        ${sub ? `<div class="node-sub">${escapeHtml(sub)}</div>` : ""}
+      `;
+      div.addEventListener("mouseenter", () => {
+        state.hoveredKey = key;
+        applyHighlight();
+      });
+      div.addEventListener("mouseleave", () => {
+        state.hoveredKey = null;
+        applyHighlight();
+      });
+      div.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectNode(key);
+      });
+      return div;
+    }
+
+    function renderFrames() {
+      if (!state.data) return;
+      const { parsed, planned, aiText } = state.data;
+      const { frame1, frame2, frame3, frame4, timingsMs, metrics } = parsed;
+
+      state.nodeIndex.clear();
+      state.selectedKey = null;
+      state.hoveredKey = null;
+
+      // Telemetry
+      $("statMs").textContent = `${timingsMs.total}ms`;
+      $("statRaw").textContent = `${metrics.estimatedRawTokens}tok`;
+      $("statF1").textContent = `${metrics.frame1Tokens}tok`;
+      const f1Ratio = metrics.frame1Tokens > 0 ? (metrics.estimatedRawTokens / metrics.frame1Tokens).toFixed(1) : "1.0";
+      $("statRatio").textContent = `${f1Ratio}x F1`;
+
+      // Frame 1
+      const b1 = $("body1");
+      b1.innerHTML = "";
+      frame1.landmarks.forEach((lm) => {
+        const sub = `${lm.stats.textBlocks}txt · ${lm.stats.interactables}int · ${lm.selector}`;
+        b1.appendChild(makeNodeChip(1, lm.id, "node-f1", lm.role, lm.parentId ? `↳${lm.parentId}` : "root", lm.label, sub, lm));
+      });
+      $("count1").textContent = `${frame1.landmarks.length}`;
+      $("meta1").textContent = `${frame1.landmarks.length} landmarks · hash ${frame1.meta.structureHash}`;
+
+      // Frame 2
+      const b2 = $("body2");
+      b2.innerHTML = "";
+      (frame2?.blocks || []).slice(0, 60).forEach((blk) => {
+        const tag = blk.kind === "heading" && blk.level ? `h${blk.level}` : blk.kind;
+        b2.appendChild(makeNodeChip(2, blk.id, "node-f2", tag, `@${blk.structureId}`, blk.text, `${blk.wordCount}w`, blk));
+      });
+      $("count2").textContent = `${frame2?.totalBlocks ?? 0}`;
+      $("meta2").textContent = `${frame2?.totalBlocks ?? 0} blocks · ${frame2?.totalWords ?? 0} words`;
+
+      // Frame 3
+      const b3 = $("body3");
+      b3.innerHTML = "";
+      (frame3?.elements || []).slice(0, 60).forEach((el) => {
+        const flags = [];
+        if (el.state.required) flags.push("req");
+        if (el.state.disabled) flags.push("disabled");
+        if (el.state.checked) flags.push("checked");
+        const sub = `${flags.length ? `[${flags.join(",")}] ` : ""}${el.selector}`;
+        b3.appendChild(makeNodeChip(3, el.id, "node-f3", el.kind, `@${el.structureId}`, el.name, sub, el));
+      });
+      $("count3").textContent = `${frame3?.totalInteractables ?? 0}`;
+      $("meta3").textContent = `${frame3?.totalInteractables ?? 0} controls`;
+
+      // Frame 4
+      const b4 = $("body4");
+      b4.innerHTML = "";
+      const allActions = [...(frame4?.workflows || []), ...(frame4?.actions || [])];
+      allActions.slice(0, 60).forEach((act) => {
+        const cls = act.effect === "destructive" ? "node-f4 destructive" : "node-f4";
+        const tag = `${act.isWorkflow ? "WORKFLOW" : act.verb} · ${act.effect}`;
+        const sub = act.steps.map((s) => `${s.op}(${s.ref})`).join(" → ");
+        b4.appendChild(makeNodeChip(4, act.id, cls, tag, `@${act.structureId}`, act.summary, sub, act));
+      });
+      $("count4").textContent = `${frame4?.totalWorkflows ?? 0}w/${frame4?.totalActions ?? 0}a`;
+      $("meta4").textContent = `${frame4?.totalWorkflows ?? 0} workflows · ${frame4?.totalActions ?? 0} actions`;
+
+      // Wire format view
+      $("wireCodeView").textContent = [aiText.frame1, aiText.frame2, aiText.frame3, aiText.frame4].join("\n\n");
+
+      // Planner results
+      const planDiv = $("planResults");
+      planDiv.innerHTML = "";
+      (planned || []).forEach((m) => {
+        const item = document.createElement("div");
+        item.className = "plan-item";
+        item.innerHTML = `<strong>[${m.score.toFixed(2)}] ${escapeHtml(m.action.id)}</strong> · ${escapeHtml(m.action.summary)}`;
+        item.onclick = () => selectNode(`4:${m.action.id}`);
+        planDiv.appendChild(item);
+      });
+
+      if (planned && planned.length > 0) {
+        selectNode(`4:${planned[0].action.id}`);
+      } else {
+        applyHighlight();
+        renderInspector(null);
+      }
+
+      updateCamera(false);
+    }
+
+    async function runParse(payload) {
+      const errBanner = $("errorBanner");
+      errBanner.classList.remove("show");
+      try {
+        state.sourcePayload = payload;
+        const goal = $("goalInput").value.trim();
+        const res = await fetch("/api/parse", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...payload, goal: goal || undefined }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        state.data = json;
+        renderFrames();
+      } catch (err) {
+        errBanner.textContent = err.message || String(err);
+        errBanner.classList.add("show");
+      }
+    }
+
+    // Event bindings
+    $("fixtureSelect").addEventListener("change", (e) => {
+      $("urlInput").value = "";
+      runParse({ fixture: e.target.value });
+    });
+
+    $("parseUrlBtn").addEventListener("click", () => {
+      const url = $("urlInput").value.trim();
+      if (!url) return;
+      runParse({ url });
+    });
+    $("urlInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $("parseUrlBtn").click();
+    });
+
+    $("planBtn").addEventListener("click", () => runParse(state.sourcePayload));
+    $("goalInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $("planBtn").click();
+    });
+
+    $("pasteHtmlBtn").addEventListener("click", () => $("htmlModal").classList.add("open"));
+    $("cancelModalBtn").addEventListener("click", () => $("htmlModal").classList.remove("open"));
+    $("submitHtmlBtn").addEventListener("click", () => {
+      const html = $("modalHtmlInput").value;
+      const url = $("modalBaseUrl").value.trim() || undefined;
+      if (!html.trim()) return;
+      $("htmlModal").classList.remove("open");
+      runParse({ html, url });
+    });
+
+    $("clearSelectionBtn").addEventListener("click", () => selectNode(null));
+
+    $("toggleWireBtn").addEventListener("click", () => {
+      state.showWire = !state.showWire;
+      $("toggleWireBtn").classList.toggle("active", state.showWire);
+      $("wireContainer").style.display = state.showWire ? "flex" : "none";
+      renderInspector(state.selectedKey);
+    });
+
+    document.querySelectorAll("[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
+    });
+
+    $("peelSlider").addEventListener("input", (e) => { state.peelMax = Number(e.target.value); updateCamera(false); });
+    $("gapSlider").addEventListener("input", (e) => { state.gap = Number(e.target.value); updateCamera(false); });
+    $("rotXSlider").addEventListener("input", (e) => { state.rotX = Number(e.target.value); updateCamera(false); });
+    $("rotZSlider").addEventListener("input", (e) => { state.rotZ = Number(e.target.value); updateCamera(false); });
+    $("zoomSlider").addEventListener("input", (e) => { state.zoom = Number(e.target.value); updateCamera(false); });
+
+    document.querySelectorAll("[data-vis]").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        state.visibility[Number(e.target.dataset.vis)] = e.target.checked;
+        updateCamera(false);
+      });
+    });
+    document.querySelectorAll("[data-op]").forEach((slider) => {
+      slider.addEventListener("input", (e) => {
+        state.opacity[Number(e.target.dataset.op)] = Number(e.target.value);
+        updateCamera(false);
+      });
+    });
+
+    window.addEventListener("resize", () => requestAnimationFrame(drawBeams));
+
+    // Initial boot with e-commerce sample
+    updateCamera(false);
+    runParse({ fixture: "ecommerce" });
+  </script>
+</body>
+</html>

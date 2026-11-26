@@ -1,0 +1,41 @@
+{
+  "name": "frameparse",
+  "version": "0.1.0",
+  "description": "Zero-AI, deterministic 4-layer webpage frame parser (Structure, Text, Interactables, Actions) for fast AI agent browsing",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "bin": {
+    "frameparse": "./dist/src/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/tests/frameparse.test.js",
+    "benchmark": "npm run build && node dist/benchmarks/benchmark.js",
+    "cli": "node dist/src/cli.js",
+    "mcp": "npm run build && node dist/src/cli.js mcp",
+    "visualizer": "npm run build && node dist/src/cli.js serve"
+  },
+  "keywords": [
+    "ai-agents",
+    "html-parser",
+    "dom-distillation",
+    "web-automation",
+    "layered-frames",
+    "deterministic"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
