@@ -39,12 +39,15 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@mozilla/readability": "^0.6.0",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^22.0.0",
     "cheerio": "^1.2.0",
+    "gifenc": "^1.0.3",
     "jsdom": "^31.0.1",
     "playwright": "^1.65.1",
+    "pngjs": "^7.0.0",
     "puppeteer": "^25.19.0",
     "typescript": "^5.7.0"
   }

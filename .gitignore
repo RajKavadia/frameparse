@@ -2,5 +2,6 @@ node_modules/
 dist/
 .playwright-mcp/
 .cursor/
+docs/demo/frames/
 *.log
 .DS_Store

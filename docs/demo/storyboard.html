@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FrameParse demo</title>
+  <style>
+    :root {
+      --bg0: #0e1116;
+      --bg1: #161b22;
+      --line: #2a3340;
+      --text: #e7ecf3;
+      --muted: #8b98a8;
+      --accent: #3dd68c;
+      --warn: #f0b429;
+      --bad: #f07178;
+      --card: #1c2330;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 1280px; height: 720px; overflow: hidden;
+      font-family: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #1a2433 0%, var(--bg0) 55%);
+      color: var(--text);
+    }
+    .stage { width: 1280px; height: 720px; position: relative; padding: 36px 48px; }
+    .brand {
+      font-size: 42px; font-weight: 700; letter-spacing: -0.03em;
+      display: flex; align-items: baseline; gap: 14px;
+    }
+    .brand span { color: var(--accent); font-size: 18px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    .sub { margin-top: 8px; color: var(--muted); font-size: 20px; max-width: 720px; line-height: 1.35; }
+    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 28px; margin-top: 28px; height: 520px; }
+    .panel {
+      background: color-mix(in srgb, var(--card) 92%, black);
+      border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px;
+      position: relative; overflow: hidden;
+    }
+    .panel h2 { margin: 0 0 14px; font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .tok {
+      font-variant-numeric: tabular-nums; font-size: 64px; font-weight: 700; letter-spacing: -0.04em; line-height: 1;
+    }
+    .tok.bad { color: var(--bad); }
+    .tok.good { color: var(--accent); }
+    .label { margin-top: 8px; color: var(--muted); font-size: 18px; }
+    .bar {
+      margin-top: 28px; height: 18px; border-radius: 999px; background: #243041; overflow: hidden;
+    }
+    .bar > i { display: block; height: 100%; background: var(--bad); width: 100%; }
+    .bar.good > i { background: var(--accent); width: 6%; }
+    .layers { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .layer {
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #141a24;
+      transform: translateY(8px); opacity: 0.35; transition: none;
+    }
+    .layer.on { opacity: 1; transform: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+    .layer b { display: block; font-size: 15px; margin-bottom: 4px; }
+    .layer code { color: var(--accent); font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+    .layer p { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px;
+      border: 1px solid var(--line); background: #121821; font-size: 14px; color: var(--muted);
+    }
+    .chip strong { color: var(--text); font-weight: 600; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .footer {
+      position: absolute; left: 48px; right: 48px; bottom: 28px; display: flex; justify-content: space-between; align-items: center;
+      color: var(--muted); font-size: 14px;
+    }
+    .act {
+      margin-top: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 16px;
+      background: #0c1017; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; color: #c9d4e3;
+    }
+    .act em { color: var(--accent); font-style: normal; }
+    .hide { display: none !important; }
+    .scene-title { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; margin: 18px 0 0; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage" data-scene="0">
+    <!-- Scene 0: Title -->
+    <div class="scene" data-id="0">
+      <div class="brand">FrameParse <span>for AI agents</span></div>
+      <div class="sub">Zero-AI 4-layer page frames. Fewer tokens. Keep the controls.</div>
+      <div class="scene-title">Observe less. Act with <code style="color:var(--accent)">i#</code> / <code style="color:var(--accent)">a#</code>.</div>
+      <div class="row" style="margin-top:36px">
+        <div class="chip"><strong>MCP</strong> filter + CDP act</div>
+        <div class="chip"><strong>16×</strong> fewer observe tokens vs Playwright HTML</div>
+        <div class="chip"><strong>64×</strong> vs raw HTML dumps</div>
+      </div>
+      <div class="footer"><span>frameparse</span><span>demo</span></div>
+    </div>
+
+    <!-- Scene 1: Before -->
+    <div class="scene hide" data-id="1">
+      <div class="brand">FrameParse <span>before</span></div>
+      <div class="grid">
+        <div class="panel">
+          <h2>Typical agent observation</h2>
+          <div class="tok bad">17,667</div>
+          <div class="label">tokens — Playwright HTML dump (large SPA task)</div>
+          <div class="bar"><i></i></div>
+          <div class="row">
+            <div class="chip">raw DOM noise</div>
+            <div class="chip">scripts / CSS</div>
+            <div class="chip">hard to plan</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Also common</h2>
+          <div class="tok bad" style="font-size:48px">6.8k–20k</div>
+          <div class="label">a11y tree dumps (Playwright / Puppeteer)</div>
+          <p style="margin-top:28px;color:var(--muted);font-size:18px;line-height:1.4">Still clickable with selectors — but expensive for the model to read every turn.</p>
+        </div>
+      </div>
+      <div class="footer"><span>benchmark:automation</span><span>1 / 5</span></div>
+    </div>
+
+    <!-- Scene 2: After -->
+    <div class="scene hide" data-id="2">
+      <div class="brand">FrameParse <span>after</span></div>
+      <div class="grid">
+        <div class="panel">
+          <h2>FrameParse observation</h2>
+          <div class="tok good">219</div>
+          <div class="label">tokens — Frame 1 + query (same large SPA find #77)</div>
+          <div class="bar good"><i></i></div>
+          <div class="row">
+            <div class="chip"><strong>16.1×</strong> vs Playwright HTML totals</div>
+            <div class="chip">acts still 3/3</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Progressive frames</h2>
+          <div class="layers">
+            <div class="layer on"><b>Frame 1 — Structure</b><code>s#</code><p>Landmarks only (~120–250 tok open)</p></div>
+            <div class="layer"><b>Frame 2 — Text</b><code>t#</code><p>Region-scoped readable content</p></div>
+            <div class="layer"><b>Frame 3 — Interactables</b><code>i#</code><p>Named controls + CSS selectors</p></div>
+            <div class="layer"><b>Frame 4 — Actions</b><code>a# / w#</code><p>Plans with safety tiers</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer"><span>zero AI parse</span><span>2 / 5</span></div>
+    </div>
+
+    <!-- Scene 3: Layers light up -->
+    <div class="scene hide" data-id="3">
+      <div class="brand">FrameParse <span>4 layers</span></div>
+      <div class="scene-title">Deterministic frames — not another HTML dump</div>
+      <div class="layers" style="margin-top:24px;max-width:920px">
+        <div class="layer on"><b>s4 [main]</b><code>structure</code><p>Pick the landmark. Skip nav/footer noise.</p></div>
+        <div class="layer on"><b>t12 @s4</b><code>text</code><p>“$1,499.00” · In stock — ships within 24 hours</p></div>
+        <div class="layer on"><b>i9 [button] Add to Cart</b><code>interactable</code><p>selector → [data-testid="add-to-cart"]</p></div>
+        <div class="layer on"><b>a5 / w1</b><code>action</code><p>effect: mutate · steps: fill → click → submit</p></div>
+      </div>
+      <div class="footer"><span>frame_open → frame_query → frame_plan</span><span>3 / 5</span></div>
+    </div>
+
+    <!-- Scene 4: Act -->
+    <div class="scene hide" data-id="4">
+      <div class="brand">FrameParse <span>act</span></div>
+      <div class="scene-title">Click with frame refs — no a11y uid scripts</div>
+      <div class="act">
+        frame_browser({ action: <em>"open"</em>, url: <em>"https://github.com/"</em> })<br/>
+        frame_act({ sessionId: <em>"p1"</em>, ref: <em>"i5"</em> })  <span style="color:var(--muted)">// Sign in</span><br/>
+        frame_act({ ref: <em>"i8"</em>, params: { value: <em>"you@acme.com"</em> } })<br/>
+        frame_scroll({ op: <em>"by"</em>, dy: <em>800</em> })
+      </div>
+      <div class="row" style="margin-top:28px">
+        <div class="chip"><strong>i#</strong> controls</div>
+        <div class="chip"><strong>a# / w#</strong> workflows</div>
+        <div class="chip"><strong>frame_diff</strong> after every act</div>
+      </div>
+      <div class="footer"><span>CDP actuator built-in</span><span>4 / 5</span></div>
+    </div>
+
+    <!-- Scene 5: CTA -->
+    <div class="scene hide" data-id="5">
+      <div class="brand">FrameParse <span>ship it</span></div>
+      <div class="scene-title">Eyes for agents. Hands optional via CDP.</div>
+      <div class="row" style="margin-top:36px">
+        <div class="chip"><strong>github.com/RajKavadia/frameparse</strong></div>
+        <div class="chip">npm run benchmark:automation</div>
+        <div class="chip">skills/frameparse</div>
+      </div>
+      <div class="grid" style="height:auto;margin-top:40px">
+        <div class="panel">
+          <h2>vs raw HTML</h2>
+          <div class="tok good" style="font-size:52px">64.5×</div>
+          <div class="label">fewer tokens (scrape compare suite)</div>
+        </div>
+        <div class="panel">
+          <h2>vs Playwright HTML</h2>
+          <div class="tok good" style="font-size:52px">16.1×</div>
+          <div class="label">fewer observe tokens (automation suite)</div>
+        </div>
+      </div>
+      <div class="footer"><span>MIT · zero-AI frames</span><span>5 / 5</span></div>
+    </div>
+  </div>
+  <script>
+    window.__setScene = (n) => {
+      document.querySelectorAll('.scene').forEach((el) => {
+        el.classList.toggle('hide', Number(el.dataset.id) !== n);
+      });
+      document.getElementById('stage').dataset.scene = String(n);
+      if (n === 2) {
+        const layers = document.querySelectorAll('.scene[data-id="2"] .layer');
+        layers.forEach((l, i) => {
+          l.classList.toggle('on', i === 0);
+        });
+      }
+      if (n === 3) {
+        document.querySelectorAll('.scene[data-id="3"] .layer').forEach((l) => l.classList.add('on'));
+      }
+    };
+    window.__setScene(0);
+  </script>
+</body>
+</html>
