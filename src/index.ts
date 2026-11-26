@@ -20,3 +20,14 @@ export { parsePageFrames, parseDomFrames, parseLiveSnapshotFrames, FrameSession 
 export { SessionStore, budgetLines, resolveHtmlSource } from "./session-store.js";
 export { FrameParseMcpServer, startMcpStdioServer } from "./mcp-server.js";
 export { createVisualizerServer, startVisualizerServer } from "./server.js";
+export {
+  FRAMEPARSE_PAGE_RUNTIME,
+  resolveAct,
+  resolveScroll,
+  CdpBrowserDriver,
+  getSharedDriver,
+  executeAct,
+  executeScroll,
+  executeSteps,
+} from "./act/index.js";
+export type { ActParams, ResolvedAct, BrowserDriver, ActExecutionResult } from "./act/index.js";

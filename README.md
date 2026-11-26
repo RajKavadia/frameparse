@@ -1,13 +1,15 @@
 # FrameParse
 
-**Zero-AI, deterministic 4-layer webpage frame parser for fast AI agent browsing.**
+**Zero-AI, deterministic 4-layer webpage frame parser + CDP actuator for fast AI agent browsing.**
 
-FrameParse decomposes any HTML webpage into **4 progressive, cross-referenced frames** in a few milliseconds with **zero LLM calls** and **zero runtime dependencies**:
+FrameParse decomposes any HTML / live browser DOM into **4 progressive, cross-referenced frames** in a few milliseconds with **zero LLM calls**:
 
 1. **Frame 1 — Structure (`s#`)**: Semantic landmarks (`header`, `nav`, `main`, `article`, `form`, `table`, `footer`), heading outline, per-region text/interactable counts, and structural hash.
 2. **Frame 2 — Text (`t#`)**: Clean, deduplicated readable content (`heading`, `paragraph`, `list_item`, `table_row`, `alert`) anchored to its parent Frame 1 region (`@s#`), with `<script>`, `<style>`, and hidden DOM noise stripped.
-3. **Frame 3 — Interactables (`i#`)**: Canonical registry of interactive controls (`link`, `button`, `input`, `select`, `checkbox`, `form`, `tab`, etc.) with resolved accessible names, states (`required`, `disabled`, `checked`, `expanded`), `<select>` options, form links, and deterministic CSS selectors.
-4. **Frame 4 — Actions (`w#`, `a#`)**: Deterministic specification of **what each control or multi-step form workflow will do**, including verb, intent category (`search`, `auth`, `commerce`, `crud_delete`, `download`, etc.), side-effect safety tier (`read`, `navigate`, `mutate`, `destructive`), preconditions, typed parameters, and executable browser steps — plus a **zero-AI action planner** (`planAction`) and **frame differ** (`diffFrames`).
+3. **Frame 3 — Interactables (`i#`)**: Canonical registry of interactive controls (`link`, `button`, `input`, `select`, `checkbox`, `form`, `tab`, etc.) with resolved accessible names, states, options, form links, and deterministic CSS selectors.
+4. **Frame 4 — Actions (`w#`, `a#`)**: Deterministic specification of **what each control or multi-step form workflow will do**, including verb, intent category, side-effect safety tier (`read` | `navigate` | `mutate` | `destructive`), preconditions, parameters, and executable steps — plus a **zero-AI action planner** (`planAction`) and **frame differ** (`diffFrames`).
+
+Core parse stays **zero runtime dependencies**. Optional CDP actuation uses Node’s built-in `WebSocket` + Chrome remote debugging (no Puppeteer required at runtime).
 
 ## Quick Start
 
@@ -46,7 +48,7 @@ Run `npm run visualizer` and open `http://127.0.0.1:4173` to inspect all 4 frame
 
 - **Pass any webpage**: Enter any live URL, paste raw HTML, or pick a built-in sample.
 - **See what's beneath each frame**: Drag to orbit in 3D, expand the **Z-Axis Layer Gap**, drag the **Peel Upper Frames** slider to lift Frame 4/3/2 off the stack, or adjust per-layer opacity.
-- **Cross-layer X-Ray**: Hover or click any card on any frame (e.g., a Frame 4 workflow `w1`) to illuminate its exact vertical lineage down through Frame 3 (Interactables), Frame 2 (Text), and Frame 1 (Structure) with glowing 3D connector beams.
+- **Cross-layer X-Ray**: Hover or click any card on any frame (e.g., a Frame 4 workflow `w1`) to illuminate its exact vertical lineage down through Frame 3 → 2 → 1.
 - **Zero-AI Planner**: Enter a goal like `"search for laptops"` or `"add to cart"` to highlight the winning workflow and everything beneath it.
 
 ## Library Usage
@@ -61,19 +63,43 @@ const frame2 = session.getText(mainRegion ? [mainRegion.id] : undefined);
 const matches = session.plan("add to cart", { allowDestructive: false });
 ```
 
+Live browser DOM (SPAs / Shadow DOM / visibility):
+
+```ts
+import { LIVE_DOM_EXTRACTOR_SCRIPT, parseLiveSnapshotFrames } from "frameparse";
+// Run LIVE_DOM_EXTRACTOR_SCRIPT in the page (CDP / Playwright evaluate), then:
+const parsed = parseLiveSnapshotFrames(snapshot, { url: snapshot.url, maxLayer: 4 });
+```
+
 ## Agentic-First MCP Server (Less Tokens, More Info)
 
-FrameParse ships with a **zero-dependency MCP server** supporting both **stdio** and **Streamable HTTP (`POST /mcp`)**, exposing 7 token-minimal tools over stateful cached page sessions:
+FrameParse ships an MCP server (stdio + Streamable HTTP `POST /mcp`) with **progressive read tools** and a **built-in CDP actuator** so agents can observe *and* click/scroll using frame refs (`i#` / `a#` / `w#`) — not DevTools a11y `uid`s.
 
 | MCP Tool | Purpose | Typical Cost |
 |---|---|---|
-| `frame_open` | Parse URL/HTML once, cache `sessionId`, return **Frame 1 (Structure)** only | ~120–250 tok |
-| `frame_query` | Zero-AI cross-layer search for facts, prices, controls, or actions | ~80–180 tok |
-| `frame_read` | Progressive region-scoped layer reader with hard `maxTokens` + pagination | Budgeted |
-| `frame_plan` | Zero-AI goal-to-action planner with safety tiers & executable steps | ~120–250 tok |
-| `frame_inspect` | Vertical cross-layer lineage X-ray for any ref (`s#`, `t#`, `i#`, `w#`, `a#`) | ~100–200 tok |
-| `frame_diff` | Post-action delta (alerts, changed control states, new actions only) | ~40–150 tok |
-| `frame_sessions` | List cached sessions + cumulative token savings telemetry | ~80 tok |
+| `frame_open` | Parse URL/HTML/live `snapshot` / fixture; return **Frame 1** only | ~120–250 tok |
+| `frame_query` | Zero-AI cross-layer search | ~80–180 tok |
+| `frame_read` | Region-scoped layer reader + `maxTokens` | Budgeted |
+| `frame_plan` | Zero-AI goal → workflows / actions | ~120–250 tok |
+| `frame_inspect` | Vertical lineage for any `s#`/`t#`/`i#`/`w#`/`a#` | ~100–200 tok |
+| `frame_diff` | Post-action delta only | ~40–150 tok |
+| `frame_sessions` | Session list / close + token savings | ~80 tok |
+| `frame_browser` | CDP `status` / `connect` / `launch` / `navigate` / `open` (live snapshot → session) | — |
+| `frame_act` | Execute click/fill/select/toggle/submit/navigate/hover/focus/type/press via `i#`/`a#`/`w#` or `goal` | + `frame_diff` |
+| `frame_scroll` | `into_view` / `by` / `to` using frame refs | + `frame_diff` |
+
+### CDP browse + act loop
+
+```text
+1. Start Chrome with --remote-debugging-port=9333 --remote-allow-origins=*
+2. frame_browser({ action: "connect", browserURL: "http://127.0.0.1:9333" })
+3. frame_browser({ action: "open", url: "https://example.com/", sessionId: "p1" })
+4. frame_query / frame_plan as needed
+5. frame_act({ sessionId: "p1", ref: "i1" })   // or goal: "add to cart"
+6. Use returned frame_diff (default reobserve)
+```
+
+Destructive Frame 4 actions require `confirmDestructive: true` after explicit user confirmation.
 
 ### Connect to Cursor / Claude Desktop
 
@@ -84,14 +110,44 @@ See `mcp.json.example`:
   "mcpServers": {
     "frameparse": {
       "command": "node",
-      "args": ["/agent/dist/src/cli.js", "mcp"]
+      "args": ["C:/path/to/frameparse/dist/src/cli.js", "mcp"]
     }
   }
 }
 ```
 
-Or connect via Streamable HTTP while running `npm run visualizer` at `http://127.0.0.1:4173/mcp`.
+Or Streamable HTTP while running `npm run visualizer` at `http://127.0.0.1:4173/mcp`.
 
-## Agent Skill
+## Benchmarks
 
-The AI agent skill is included at `skills/frameparse/SKILL.md` (and installed to `/cursor/stores/user/skills/frameparse/SKILL.md`).
+```bash
+# Parser latency + MCP token efficiency
+npm run benchmark
+
+# Scrape baselines (raw HTML / Cheerio / jsdom / Readability) vs FrameParse
+npm run benchmark:compare
+
+# Browser automation frameworks (Playwright / Puppeteer HTML+a11y) vs FrameParse
+npm run benchmark:automation
+```
+
+Recent automation-bench totals (5 agent tasks, observe tokens lower = better for LLMs):
+
+| Framework | Observe tokens | vs Playwright HTML | Acts |
+|---|---:|---:|---|
+| playwright-html | 20,477 | 1.0× | 3/3 |
+| puppeteer-html | 20,477 | 1.0× | 3/3 |
+| playwright-a11y | 8,140 | 2.5× | 3/3 |
+| puppeteer-a11y | 23,959 | 0.9× | 3/3 |
+| **frameparse-frames** | **1,269** | **16.1×** | **3/3** |
+
+Large SPA “find #77”: FrameParse **219** tok vs Playwright HTML **~17.7k** / a11y **~6.8k–20k**.
+
+## Agent Skills
+
+| Skill | Path |
+|---|---|
+| Core MCP browse loop | `skills/frameparse/SKILL.md` |
+| CDP filter + actuation | `skills/cdp-frameparse-filter/SKILL.md` |
+
+Copy into your agent skills directory (e.g. Cursor user Agent Store) as needed.

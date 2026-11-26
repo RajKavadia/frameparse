@@ -1,61 +1,61 @@
 ---
 name: frameparse
-description: Agentic-AI-first, zero-AI 4-layer webpage frame parser with built-in MCP server (stdio + Streamable HTTP). Use when browsing or inspecting webpages so agents read dramatically fewer tokens while getting higher-density structure, text, controls, and executable action plans.
+description: Agentic-AI-first, zero-AI 4-layer webpage frame parser with MCP (stdio + HTTP) and CDP actuation. Use when browsing or acting on webpages so agents read fewer tokens while getting structure, text, controls, plans, and frame-ref clicks/scrolls.
 ---
 
 # FrameParse — Agentic-AI-First 4-Layer MCP Skill
 
-FrameParse is designed so AI agents read **5–20x fewer tokens** while getting **more actionable information** (structured landmarks, region-scoped text, verified CSS selectors, composite form workflows, side-effect safety tiers, and post-action diffs) — all computed deterministically with **zero AI**.
+FrameParse is designed so AI agents read **5–20x fewer tokens** while getting **more actionable information** (structured landmarks, region-scoped text, verified CSS selectors, composite form workflows, side-effect safety tiers, executable steps, and post-action diffs) — all computed deterministically with **zero AI**.
 
-## Preferred Path: FrameParse MCP Server Tools
+## Preferred Path: FrameParse MCP Tools
 
-When the `frameparse` MCP server is connected (stdio: `node /agent/dist/src/cli.js mcp`, or HTTP: `POST http://127.0.0.1:4173/mcp`), ALWAYS follow this token-minimal loop:
+When the `frameparse` MCP server is connected, ALWAYS follow this token-minimal loop:
 
-1. **`frame_open({ url | html | fixture })`** — **Always first.**
-   - Parses once, caches a stateful `sessionId` (`p1`), and returns **ONLY Frame 1 (Structure)** + token compression stats (~120–250 tokens instead of 10,000+ tokens of raw HTML).
-   - Pick the exact `s#` landmark(s) relevant to the goal (e.g., `s4 [main]`, `s6 [form]`) and ignore nav/footer boilerplate.
+### Observe
 
-2. **`frame_query({ sessionId, query })`** — **Fastest high-density lookup (~80–150 tokens).**
-   - Need a price, spec, status, label, or specific button? Query across Frames 2–4 with zero AI instead of reading an entire layer.
+1. **`frame_open({ url | html | snapshot | fixture })`** — **Always first for a new page.**
+   - Returns **ONLY Frame 1 (Structure)** + compression stats (~120–250 tokens instead of 10k+ raw HTML).
+   - For live SPAs / auth pages prefer **`frame_browser({ action: "open", url, sessionId })`** (CDP live snapshot → session).
 
-3. **`frame_read({ sessionId, layer, regions, maxTokens, offset })`** — **Progressive, budget-capped reading.**
-   - Pull ONLY the layer you need (`2` Text, `3` Interactables, `4` Actions), scoped to `regions: ["s4"]`, with a hard `maxTokens` cap (default `900`) and pagination (`offset` / `nextOffset`).
+2. **`frame_query({ sessionId, query })`** — Fastest high-density lookup (~80–150 tokens).
 
-4. **`frame_plan({ sessionId, goal, regions?, allowDestructive? })`** — **Zero-AI action planning.**
-   - Returns ranked Frame 4 composite **workflows (`w#`)** and atomic **actions (`a#`)** with:
-     - `effect` tier: `read` | `navigate` | `mutate` | `destructive`
-     - `preconditions` (required fields, disabled controls)
-     - executable `steps` (`op`, `ref`, `selector`, `param`) ready for Playwright / browser runners.
-   - **Safety Rule:** NEVER execute `effect: "destructive"` without explicit user confirmation.
+3. **`frame_read({ sessionId, layer, regions, maxTokens, offset })`** — Progressive, budget-capped reading (layers 2–4).
 
-5. **`frame_inspect({ sessionId, ref })`** — **Cross-layer vertical X-ray.**
-   - Given any ref (`s#`, `t#`, `i#`, `w#`, `a#`), returns everything beneath and above it across Frames 1–4.
+4. **`frame_plan({ sessionId, goal, regions?, allowDestructive? })`** — Zero-AI action plans with `effect` tiers and `steps[]`.
+   - **Safety:** NEVER execute `effect: "destructive"` without explicit user confirmation.
 
-6. **`frame_diff({ sessionId, url | html | fixture })`** — **Delta-only re-observation (~40–150 tokens).**
-   - After executing an action, diff against the cached session instead of re-reading the whole page. Inspect only `+text` alerts, `~changed interactables`, and `+actions`.
+5. **`frame_inspect({ sessionId, ref })`** — Vertical lineage for any `s#` / `t#` / `i#` / `w#` / `a#`.
 
-7. **`frame_sessions({ action: "list" | "close" })`** — **Check token savings telemetry** (raw HTML tokens avoided vs compact frame tokens emitted) or close sessions.
+6. **`frame_diff(...)`** — Delta-only re-observation after mutations (~40–150 tokens).
 
-## CLI Fallback (when MCP is not mounted)
+### Act (CDP — no DevTools a11y uids)
 
-```bash
-# Frame 1 (Structure)
-node /agent/dist/src/cli.js <url-or-file> --layer 1 --stats
+7. **`frame_browser({ action: "connect" | "launch" | "navigate" | "open" | "status" })`**
+   - Prefer `connect` to `http://127.0.0.1:9333` (Chrome `--remote-debugging-port` + `--remote-allow-origins=*`).
 
-# Region-scoped Frame 2 (Text) or Frame 4 (Actions)
-node /agent/dist/src/cli.js <url-or-file> --layer 2 --region s4
-node /agent/dist/src/cli.js <url-or-file> --layer 4 --region s4
+8. **`frame_act({ sessionId, ref | goal, params?, confirmDestructive? })`**
+   - `ref`: `i#` (control), `a#` / `w#` (Frame 4), or `s#` (scroll region).
+   - Ops: click, fill, select, toggle, submit, navigate, hover, focus, type, press.
+   - Reobserves + returns `frame_diff` by default.
 
-# Zero-AI Action Plan
-node /agent/dist/src/cli.js <url-or-file> --plan "search for laptops"
+9. **`frame_scroll({ sessionId, op: "into_view" | "by" | "to", ... })`**
 
-# Post-action Frame Diff
-node /agent/dist/src/cli.js before.html --diff after.html
-```
+10. **`frame_sessions({ action: "list" | "close" })`** — Telemetry / cleanup.
 
 ## Rules for Agents
 
-- **Never** dump raw HTML into context when `frame_open` + `frame_query` / region-scoped `frame_read` answers the question.
-- **Always** pass `regions` and `maxTokens` to `frame_read` on large pages.
-- **Always** prefer Frame 4 `workflows` (`w#`) over piecing form inputs and submit buttons together manually.
-- **Always** use `frame_diff` after page mutations instead of calling `frame_open` again.
+- **Never** dump raw HTML / full a11y trees when FrameParse answers the question.
+- **Prefer** FrameParse `i#`/`a#`/`w#` over Chrome DevTools `uid` + `evaluate_script` when the CDP actuator is connected.
+- **Always** pass `regions` + `maxTokens` on large pages.
+- **Always** prefer Frame 4 workflows (`w#`) over hand-assembling form steps.
+- **Always** use `frame_diff` / act reobserve after mutations instead of full re-dumps.
+- **Never** set `confirmDestructive: true` unless the user explicitly confirmed.
+
+## CLI Fallback
+
+```bash
+node dist/src/cli.js <url-or-file> --layer 1 --stats
+node dist/src/cli.js <url-or-file> --layer 2 --region s4
+node dist/src/cli.js <url-or-file> --plan "search for laptops"
+node dist/src/cli.js before.html --diff after.html
+```

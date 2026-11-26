@@ -16,8 +16,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/tests/frameparse.test.js",
+    "test": "npm run build && node --test dist/tests/*.test.js",
     "benchmark": "npm run build && node dist/benchmarks/benchmark.js",
+    "benchmark:compare": "npm run build && node dist/benchmarks/compare-scrapers.js",
+    "benchmark:automation": "npm run build && node dist/benchmarks/compare-automation.js",
+    "cdp:extractor": "node scripts/cdp-frameparse-filter.mjs --print-extractor",
+    "cdp:filter": "node scripts/cdp-frameparse-filter.mjs",
     "cli": "node dist/src/cli.js",
     "mcp": "npm run build && node dist/src/cli.js mcp",
     "visualizer": "npm run build && node dist/src/cli.js serve"
@@ -35,7 +39,13 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.0.0",
+    "cheerio": "^1.2.0",
+    "jsdom": "^31.0.1",
+    "playwright": "^1.65.1",
+    "puppeteer": "^25.19.0",
     "typescript": "^5.7.0"
   }
 }

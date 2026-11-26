@@ -286,7 +286,7 @@ test("MCP Server (JSON-RPC 2.0): progressive open, query, budgeted read, plan, i
   assert.ok(init?.result);
   const toolsResp = await mcp.handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" });
   const tools = (toolsResp?.result as { tools: Array<{ name: string }> }).tools;
-  assert.equal(tools.length, 7);
+  assert.equal(tools.length, 10);
   assert.ok(tools.some((t) => t.name === "frame_open"));
   assert.ok(tools.some((t) => t.name === "frame_query"));
   assert.ok(tools.some((t) => t.name === "frame_diff"));

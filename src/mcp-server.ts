@@ -1,4 +1,5 @@
 import readline from "node:readline";
+import { executeAct, executeScroll, getSharedDriver } from "./act/index.js";
 import { LIVE_DOM_EXTRACTOR_SCRIPT } from "./browser-adapter.js";
 import { formatFrame1ForAI } from "./formatter.js";
 import { SessionStore } from "./session-store.js";
@@ -7,7 +8,7 @@ import type { FrameLayer, LiveDomSnapshot } from "./types.js";
 const MCP_PROTOCOL_VERSION = "2025-03-26";
 const SERVER_INFO = {
   name: "frameparse-mcp",
-  version: "0.2.0",
+  version: "0.3.0",
 };
 
 export interface JsonRpcRequest {
@@ -184,6 +185,83 @@ const MCP_TOOLS: McpToolDef[] = [
       properties: {
         action: { type: "string", enum: ["list", "close"], description: "Default: list." },
         sessionId: { type: "string", description: "Required when action is 'close'." },
+      },
+    },
+  },
+  {
+    name: "frame_browser",
+    description:
+      "Connect FrameParse's built-in CDP actuator to Chrome (no DevTools uid required). Actions: status | connect | launch | disconnect | navigate. Prefer connect to an existing debugging port (http://127.0.0.1:9222).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["status", "connect", "launch", "disconnect", "navigate", "open"],
+          description: "Default: status. action=open navigates (optional url), extracts live DOM snapshot, and frame_open's it into a session.",
+        },
+        browserURL: {
+          type: "string",
+          description: "Chrome remote debugging HTTP endpoint, e.g. http://127.0.0.1:9222",
+        },
+        wsEndpoint: { type: "string", description: "Direct CDP WebSocket endpoint." },
+        url: { type: "string", description: "URL for action=navigate or action=open." },
+        sessionId: { type: "string", description: "Optional session id for action=open." },
+        headless: { type: "boolean", description: "For action=launch (default true)." },
+        executablePath: { type: "string", description: "Chrome binary for action=launch." },
+      },
+    },
+  },
+  {
+    name: "frame_act",
+    description:
+      "Execute interaction(s) from FrameParse frames via CDP — click/fill/select/toggle/submit/navigate/hover/focus/type/press — using i# / a# / w# refs or a goal. Does NOT use DevTools a11y uids. Auto scroll-into-view before target ops. Re-extracts snapshot + returns frame_diff by default.",
+    inputSchema: {
+      type: "object",
+      required: ["sessionId"],
+      properties: {
+        sessionId: { type: "string" },
+        ref: {
+          type: "string",
+          description: "Frame ref to act on: i12 (interactable), a3/w1 (Frame 4 action/workflow), or s4 (scroll region).",
+        },
+        goal: {
+          type: "string",
+          description: "If ref omitted, run the top Frame 4 plan for this goal.",
+        },
+        params: {
+          type: "object",
+          description: "Values for fill/select/toggle/press (e.g. { q: \"laptops\", value: \"...\", key: \"Enter\" }).",
+          additionalProperties: true,
+        },
+        confirmDestructive: {
+          type: "boolean",
+          description: "Required true to execute destructive Frame 4 actions.",
+        },
+        reobserve: {
+          type: "boolean",
+          description: "Re-extract live DOM and return frame_diff (default true).",
+        },
+      },
+    },
+  },
+  {
+    name: "frame_scroll",
+    description:
+      "Scroll using FrameParse refs: into_view(ref), by(dx,dy), or to(top|bottom|x,y). Uses CDP actuator; reobserves by default.",
+    inputSchema: {
+      type: "object",
+      required: ["sessionId", "op"],
+      properties: {
+        sessionId: { type: "string" },
+        op: { type: "string", enum: ["into_view", "by", "to"] },
+        ref: { type: "string", description: "i# / a# / s# for into_view or element scroll container." },
+        dx: { type: "number" },
+        dy: { type: "number" },
+        x: { type: "number" },
+        y: { type: "number" },
+        target: { type: "string", enum: ["top", "bottom"], description: "For op=to without x/y." },
+        reobserve: { type: "boolean", description: "Default true." },
       },
     },
   },
@@ -560,6 +638,148 @@ export class FrameParseMcpServer {
         return {
           content: [{ type: "text", text: JSON.stringify({ activeSessions: list }, null, 2) }],
         };
+      }
+
+      if (name === "frame_browser") {
+        const driver = getSharedDriver();
+        const action = typeof args.action === "string" ? args.action : "status";
+        if (action === "status") {
+          return { content: [{ type: "text", text: JSON.stringify(driver.status(), null, 2) }] };
+        }
+        if (action === "disconnect") {
+          await driver.disconnect();
+          return { content: [{ type: "text", text: "Disconnected CDP browser driver." }] };
+        }
+        if (action === "connect") {
+          await driver.connect({
+            browserURL: typeof args.browserURL === "string" ? args.browserURL : process.env.FRAMEPARSE_CDP_URL || "http://127.0.0.1:9222",
+            wsEndpoint: typeof args.wsEndpoint === "string" ? args.wsEndpoint : undefined,
+          });
+          return { content: [{ type: "text", text: JSON.stringify({ ok: true, ...driver.status() }, null, 2) }] };
+        }
+        if (action === "launch") {
+          await driver.launch({
+            headless: typeof args.headless === "boolean" ? args.headless : true,
+            executablePath: typeof args.executablePath === "string" ? args.executablePath : undefined,
+          });
+          return { content: [{ type: "text", text: JSON.stringify({ ok: true, ...driver.status() }, null, 2) }] };
+        }
+        if (action === "navigate") {
+          const url = String(args.url ?? "");
+          if (!url) throw new Error("url required for navigate");
+          if (!driver.status().connected) {
+            await driver.connect({
+              browserURL: typeof args.browserURL === "string" ? args.browserURL : process.env.FRAMEPARSE_CDP_URL || "http://127.0.0.1:9222",
+            });
+          }
+          await driver.navigate(url);
+          return { content: [{ type: "text", text: JSON.stringify({ ok: true, ...driver.status() }, null, 2) }] };
+        }
+        if (action === "open") {
+          if (!driver.status().connected) {
+            await driver.connect({
+              browserURL: typeof args.browserURL === "string" ? args.browserURL : process.env.FRAMEPARSE_CDP_URL || "http://127.0.0.1:9222",
+            });
+          }
+          if (typeof args.url === "string" && args.url) {
+            await driver.navigate(args.url);
+          }
+          const snapshot = await driver.extractSnapshot();
+          const session = await this.store.open({
+            snapshot,
+            url: snapshot.url,
+            sessionId: typeof args.sessionId === "string" ? args.sessionId : undefined,
+          });
+          const f1Text = formatFrame1ForAI(session.parsed.frame1);
+          const out = [
+            `sessionId: ${session.id} | LIVE CDP snapshot | raw≈${session.parsed.metrics.estimatedRawTokens}tok -> frame1=${session.parsed.metrics.frame1Tokens}tok`,
+            `totals: ${session.parsed.frame1.landmarks.length} landmarks, ${session.parsed.frame2?.totalBlocks ?? 0} text, ${session.parsed.frame3?.totalInteractables ?? 0} interactables, ${session.parsed.frame4?.totalActions ?? 0} actions`,
+            `browser: ${snapshot.url}`,
+            "",
+            f1Text,
+            "",
+            `next: frame_act({ sessionId: "${session.id}", ref: "i#" | goal }) or frame_scroll(...)`,
+          ].join("\n");
+          this.store.recordEmission(session, out);
+          return { content: [{ type: "text", text: out }] };
+        }
+        throw new Error(`Unknown frame_browser action: ${action}`);
+      }
+
+      if (name === "frame_act") {
+        const sessionId = String(args.sessionId ?? "");
+        const session = this.store.get(sessionId);
+        const driver = getSharedDriver();
+        if (!driver.status().connected) {
+          throw new Error('Browser not connected. Call frame_browser({ action: "connect" | "launch" }) first.');
+        }
+        const params =
+          args.params && typeof args.params === "object"
+            ? (args.params as Record<string, string | number | boolean | undefined>)
+            : undefined;
+        const result = await executeAct({
+          driver,
+          parsed: session.parsed,
+          ref: typeof args.ref === "string" ? args.ref : undefined,
+          goal: typeof args.goal === "string" ? args.goal : undefined,
+          params,
+          allowDestructive: Boolean(args.confirmDestructive),
+          reobserve: typeof args.reobserve === "boolean" ? args.reobserve : true,
+        });
+
+        if (result.parsedAfter && result.snapshot) {
+          await this.store.diffAndUpdate(sessionId, {
+            snapshot: result.snapshot,
+            executedActionId: result.resolved.actionId,
+            updateSession: true,
+          });
+        }
+
+        const lines = [
+          `# FRAME ACT ${result.resolved.actionId || ""} [${result.resolved.effect}] ${result.resolved.summary}`,
+          `steps: ${result.resolved.steps.map((s) => `${s.op}(${s.ref})`).join(" -> ")}`,
+          `results: ${result.stepResults.map((r) => (r.ok ? "ok" : `fail:${r.error}`)).join(", ")}`,
+          result.diffText ? `\n${result.diffText}\n[diff ~${result.diffTokens}tok]` : "",
+        ];
+        const text = lines.filter(Boolean).join("\n");
+        this.store.recordEmission(session, text);
+        return { content: [{ type: "text", text }] };
+      }
+
+      if (name === "frame_scroll") {
+        const sessionId = String(args.sessionId ?? "");
+        const session = this.store.get(sessionId);
+        const driver = getSharedDriver();
+        if (!driver.status().connected) {
+          throw new Error('Browser not connected. Call frame_browser({ action: "connect" | "launch" }) first.');
+        }
+        const op = String(args.op ?? "") as "into_view" | "by" | "to";
+        if (!["into_view", "by", "to"].includes(op)) throw new Error("op must be into_view | by | to");
+        const result = await executeScroll({
+          driver,
+          parsed: session.parsed,
+          op,
+          ref: typeof args.ref === "string" ? args.ref : undefined,
+          dx: typeof args.dx === "number" ? args.dx : undefined,
+          dy: typeof args.dy === "number" ? args.dy : undefined,
+          x: typeof args.x === "number" ? args.x : undefined,
+          y: typeof args.y === "number" ? args.y : undefined,
+          target: args.target === "top" || args.target === "bottom" ? args.target : undefined,
+          reobserve: typeof args.reobserve === "boolean" ? args.reobserve : true,
+        });
+        if (result.parsedAfter && result.snapshot) {
+          await this.store.diffAndUpdate(sessionId, {
+            snapshot: result.snapshot,
+            updateSession: true,
+          });
+        }
+        const text = [
+          `# FRAME SCROLL ${op} ${args.ref || ""}`,
+          `results: ${JSON.stringify(result.stepResults)}`,
+          result.diffText ? `\n${result.diffText}` : "",
+        ].join("\n");
+        this.store.recordEmission(session, text);
+        return { content: [{ type: "text", text }] };
       }
 
       return {
