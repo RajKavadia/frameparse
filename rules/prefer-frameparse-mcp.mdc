@@ -1,0 +1,11 @@
+---
+description: Prefer FrameParse MCP frames and refs over raw HTML dumps or DevTools a11y uids when browsing or acting on pages.
+alwaysApply: false
+---
+
+When observing or acting on webpages with FrameParse available:
+
+1. Start with `frame_open` / `frame_browser({ action: "open" })` — Frame 1 only.
+2. Use `frame_query`, `frame_read`, `frame_plan`, `frame_inspect` instead of dumping full HTML or Playwright a11y trees.
+3. Click/scroll with `frame_act` / `frame_scroll` using `i#` / `a#` / `w#` refs — not DevTools `uid`s or `evaluate_script` hacks.
+4. Never execute Frame 4 `destructive` actions without explicit user confirmation (`confirmDestructive: true`).

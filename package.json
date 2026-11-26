@@ -6,7 +6,7 @@
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "bin": {
-    "frameparse": "./dist/src/cli.js"
+    "frameparse": "bin/frameparse.js"
   },
   "exports": {
     ".": {
@@ -14,8 +14,18 @@
       "import": "./dist/src/index.js"
     }
   },
+  "files": [
+    "bin",
+    "dist/src",
+    "visualizer",
+    "skills",
+    "mcp.json.example",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm test",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "benchmark": "npm run build && node dist/benchmarks/benchmark.js",
     "benchmark:compare": "npm run build && node dist/benchmarks/compare-scrapers.js",
@@ -27,14 +37,27 @@
     "visualizer": "npm run build && node dist/src/cli.js serve"
   },
   "keywords": [
+    "mcp",
     "ai-agents",
+    "playwright",
+    "browser-automation",
     "html-parser",
     "dom-distillation",
     "web-automation",
     "layered-frames",
-    "deterministic"
+    "deterministic",
+    "cdp"
   ],
+  "author": "Raj Kavadia",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RajKavadia/frameparse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RajKavadia/frameparse/issues"
+  },
+  "homepage": "https://github.com/RajKavadia/frameparse#readme",
   "engines": {
     "node": ">=20.0.0"
   },

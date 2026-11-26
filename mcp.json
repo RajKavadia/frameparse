@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "frameparse": {
+      "command": "npx",
+      "args": ["-y", "frameparse", "mcp"]
+    }
+  }
+}

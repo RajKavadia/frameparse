@@ -11,9 +11,28 @@ FrameParse decomposes any HTML / live browser DOM into **4 progressive, cross-re
 
 Core parse stays **zero runtime dependencies**. Optional CDP actuation uses Node’s built-in `WebSocket` + Chrome remote debugging (no Puppeteer required at runtime).
 
-## Quick Start
+![FrameParse demo — progressive frames, fewer tokens, click via i# / a# / w#](https://raw.githubusercontent.com/RajKavadia/frameparse/main/docs/demo/frameparse-demo.gif)
+
+**Benchmarks (local fixtures):** FrameParse MCP ≈ **64.5×** fewer output tokens vs raw HTML; ≈ **16.1×** fewer observe tokens vs Playwright HTML — same fill/click success.
+
+## Install
 
 ```bash
+npm install frameparse
+```
+
+### Cursor plugin
+
+This repo is a [Cursor Plugin](https://cursor.com/docs/plugins): MCP server + agent skills.
+
+- Manifest: `.cursor-plugin/plugin.json`
+- MCP: `mcp.json` (`npx -y frameparse mcp`)
+- Skills: `skills/frameparse`, `skills/cdp-frameparse-filter`
+
+Submit / install from the public GitHub repo via [Cursor Marketplace publish](https://cursor.com/marketplace/publish), or link the repo as a local plugin for testing.
+
+```bash
+# from source
 npm install
 npm run build
 npm test

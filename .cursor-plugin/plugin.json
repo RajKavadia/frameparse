@@ -1,0 +1,25 @@
+{
+  "name": "frameparse",
+  "version": "0.1.0",
+  "description": "Zero-AI 4-layer webpage frames for AI agents — progressive MCP observe + CDP click/scroll via i# / a# / w# refs (fewer tokens than raw HTML or Playwright dumps).",
+  "author": {
+    "name": "Raj Kavadia",
+    "email": "rajkavadia78@gmail.com"
+  },
+  "homepage": "https://github.com/RajKavadia/frameparse#readme",
+  "repository": "https://github.com/RajKavadia/frameparse",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "browser-automation",
+    "playwright",
+    "cdp",
+    "web-scraping",
+    "token-efficiency"
+  ],
+  "logo": "assets/logo.svg",
+  "skills": "skills",
+  "rules": "rules",
+  "mcpServers": "mcp.json"
+}
