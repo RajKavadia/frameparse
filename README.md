@@ -23,13 +23,13 @@ npm install frameparse
 
 ### Cursor plugin
 
-This repo is a [Cursor Plugin](https://cursor.com/docs/plugins): MCP server + agent skills.
+Layout follows the [Cursor plugin template](https://github.com/cursor/plugin-template):
 
-- Manifest: `.cursor-plugin/plugin.json`
-- MCP: `mcp.json` (`npx -y frameparse mcp`)
-- Skills: `skills/frameparse`, `skills/cdp-frameparse-filter`
+- Marketplace: `.cursor-plugin/marketplace.json`
+- Plugin: `plugins/frameparse/` (MCP + skills + rules + logo)
+- Validate: `node scripts/validate-plugins.mjs`
 
-Submit / install from the public GitHub repo via [Cursor Marketplace publish](https://cursor.com/marketplace/publish), or link the repo as a local plugin for testing.
+Submit the repo at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish).
 
 ```bash
 # from source
@@ -207,7 +207,7 @@ Takeaway: Playwright/Puppeteer match FrameParse on **act success**; FrameParse w
 
 | Skill | Path |
 |---|---|
-| Core MCP browse loop | `skills/frameparse/SKILL.md` |
-| CDP filter + actuation | `skills/cdp-frameparse-filter/SKILL.md` |
+| Core MCP browse loop | `plugins/frameparse/skills/frameparse/SKILL.md` |
+| CDP filter + actuation | `plugins/frameparse/skills/cdp-frameparse-filter/SKILL.md` |
 
 Copy into your agent skills directory (e.g. Cursor user Agent Store) as needed.

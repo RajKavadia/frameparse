@@ -34,7 +34,8 @@
     "cdp:filter": "node scripts/cdp-frameparse-filter.mjs",
     "cli": "node dist/src/cli.js",
     "mcp": "npm run build && node dist/src/cli.js mcp",
-    "visualizer": "npm run build && node dist/src/cli.js serve"
+    "visualizer": "npm run build && node dist/src/cli.js serve",
+    "validate:plugins": "node scripts/validate-plugins.mjs"
   },
   "keywords": [
     "mcp",
