@@ -131,17 +131,58 @@ npm run benchmark:compare
 npm run benchmark:automation
 ```
 
-Recent automation-bench totals (5 agent tasks, observe tokens lower = better for LLMs):
+Lower **observe / output tokens** is better for AI agents (less context burned). Acts measure whether fill/click still succeeds.
 
-| Framework | Observe tokens | vs Playwright HTML | Acts |
-|---|---:|---:|---|
-| playwright-html | 20,477 | 1.0× | 3/3 |
-| puppeteer-html | 20,477 | 1.0× | 3/3 |
-| playwright-a11y | 8,140 | 2.5× | 3/3 |
-| puppeteer-a11y | 23,959 | 0.9× | 3/3 |
-| **frameparse-frames** | **1,269** | **16.1×** | **3/3** |
+### 1) Scrape baselines vs FrameParse (`npm run benchmark:compare`)
 
-Large SPA “find #77”: FrameParse **219** tok vs Playwright HTML **~17.7k** / a11y **~6.8k–20k**.
+Same fixtures/tasks: find price, locate Add to Cart, large SPA find #142, dashboard post-login diff.
+
+#### Totals
+
+| Framework | Tasks | Answer hits | Output tokens | vs raw | Latency |
+|---|---:|---|---:|---|---:|
+| raw-html | 4 | 4/4 | 66,136 | 1.0× | ~0 ms |
+| cheerio-text | 4 | 4/4 | 8,556 | 7.7× | ~47 ms |
+| jsdom-text | 4 | 4/4 | 8,556 | 7.7× | ~209 ms |
+| readability | 4 | 3/4 | 7,728 | 8.6× | ~208 ms |
+| **frameparse-mcp** | 4 | **4/4** | **1,026** | **64.5×** | ~38 ms |
+
+#### Per-task output tokens
+
+| Task | raw-html | cheerio | jsdom | readability | frameparse |
+|---|---:|---:|---:|---:|---:|
+| E-Commerce: find price $1,499 | 856 | 167 | 167 | 66 | **300** |
+| E-Commerce: locate Add to Cart | 856 | 167 | 167 | 66 (miss) | **228** |
+| Large SPA (~200 cards): find #142 | 64,228 | 8,170 | 8,170 | 7,556 | **429** |
+| SaaS Dashboard: post-login change | 196 | 52 | 52 | 40 | **69** (delta) |
+
+Notes: Readability missed “Add to Cart” (drops form controls). FrameParse keeps controls/workflows and uses `frame_diff` for post-action observation.
+
+### 2) Automation frameworks vs FrameParse (`npm run benchmark:automation`)
+
+Same local pages + agent tasks. Observe = tokens dumped to the model; Act = fill/click success.
+
+#### Totals
+
+| Framework | Tasks | Answer hits | Acts | Observe tokens | vs Playwright HTML | Avg observe ms |
+|---|---:|---|---|---:|---|---:|
+| playwright-html | 5 | 5/5 | 3/3 | 20,477 | 1.0× | 66 |
+| puppeteer-html | 5 | 5/5 | 3/3 | 20,477 | 1.0× | 37 |
+| playwright-a11y | 5 | 5/5 | 3/3 | 8,140 | 2.5× | 73 |
+| puppeteer-a11y | 5 | 5/5 | 3/3 | 23,959 | 0.9× | 48 |
+| **frameparse-frames** | 5 | **5/5** | **3/3** | **1,269** | **16.1×** | **20** |
+
+#### Per-task observe tokens
+
+| Task | PW HTML | PW a11y | PP HTML | PP a11y | FrameParse |
+|---|---:|---:|---:|---:|---:|
+| Ecom: observe price $1,499 | 835 | 375 | 835 | 998 | **182** |
+| Ecom: fill search + click Search | 835 | 375 | 835 | 998 | **293** |
+| Ecom: click Add to Cart | 835 | 375 | 835 | 998 | **341** |
+| Dashboard: find Sign In | 305 | 169 | 305 | 471 | **234** |
+| Large SPA: find Workstation #77 | 17,667 | 6,846 | 17,667 | 20,494 | **219** |
+
+Takeaway: Playwright/Puppeteer match FrameParse on **act success**; FrameParse wins on **agent observation cost** (especially large pages). Use automation frameworks (or FrameParse CDP) as hands; use FrameParse frames as eyes.
 
 ## Agent Skills
 
