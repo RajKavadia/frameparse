@@ -24,6 +24,8 @@ npm run visualizer   # http://127.0.0.1:4173 — 3D stack + MCP at /mcp
 
 ![Frame 1 structure (e-commerce fixture)](screenshots/01-ecommerce-frame1-structure.png)
 
+![Demo: visualizer + layered frames](docs/demo/frameparse-demo.gif)
+
 ## What it is (and is not)
 
 **FrameParse is an observation and planning layer:** deterministic HTML/DOM → cross-linked frames + MCP session cache + zero-AI `planAction`.

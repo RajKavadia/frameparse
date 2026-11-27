@@ -13,8 +13,8 @@ FrameParse is a small TypeScript library + MCP server that parses HTML/DOM into 
 
 No LLM is used in the parser. On a synthetic 251KB SPA fixture, our benchmark reports ~64k estimated raw tokens vs 196 for Frame 1 (~328× on that layer). MCP stdio round-trips are ~1ms for most tools after cold start.
 
-Includes a 3D visualizer (npm run visualizer), live DOM snapshot script (for post-hydration pages), and multi-step frame_chain on the current branch (https://github.com/RajKavadia/frameparse/tree/cursor/direct-tool-chain-783c).
+Includes a 3D visualizer (npm run visualizer), live DOM snapshot script, optional CDP actuation (frame_browser/frame_act/frame_scroll), and multi-step frame_chain.
 
-MIT: https://github.com/RajKavadia/frameparse
+MIT: https://github.com/RajKavadia/frameparse — release v0.2.0
 
 I built this because agent loops were spending most of their context on layout/script noise before they could even find the "Add to cart" button. Feedback welcome—especially on false positives in action inference and destructive-action tiers.
