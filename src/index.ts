@@ -20,3 +20,21 @@ export { parsePageFrames, parseDomFrames, parseLiveSnapshotFrames, FrameSession 
 export { SessionStore, budgetLines, resolveHtmlSource } from "./session-store.js";
 export { FrameParseMcpServer, startMcpStdioServer } from "./mcp-server.js";
 export { createVisualizerServer, startVisualizerServer } from "./server.js";
+export {
+  executeToolChain,
+  executeFrameChainTool,
+  buildChainPreset,
+  formatChainCompact,
+  type ToolChainRequest,
+  type ToolChainStep,
+  type ToolChainResult,
+  type ChainPresetName,
+} from "./tool-chain.js";
+export {
+  FRAME_TOOL_NAMES,
+  MCP_TOOL_DEFINITIONS,
+  executeFrameTool,
+  toMcpToolContent,
+  type FrameToolName,
+  type FrameToolResult,
+} from "./tools.js";

@@ -12,6 +12,8 @@ import { planAction } from "./frame4-actions.js";
 import { FrameParseMcpServer, type JsonRpcRequest } from "./mcp-server.js";
 import { parsePageFrames } from "./pipeline.js";
 import { SessionStore } from "./session-store.js";
+import { executeFrameChainTool, executeToolChain, type ToolChainRequest } from "./tool-chain.js";
+import { executeFrameTool } from "./tools.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../..");
@@ -92,6 +94,72 @@ export function createVisualizerServer(sharedStore?: SessionStore): http.Server 
           return;
         }
         sendJson(res, 200, rpcResp);
+        return;
+      }
+
+      // Direct in-process tool chain (no MCP JSON-RPC envelope)
+      if (method === "POST" && reqUrl.pathname === "/api/chain") {
+        const body = await readJsonBody(req);
+        const singleTool = typeof body.tool === "string" ? body.tool : undefined;
+        if (singleTool && singleTool !== "frame_chain") {
+          const singleArgs =
+            body.arguments && typeof body.arguments === "object"
+              ? (body.arguments as Record<string, unknown>)
+              : {};
+          const result = await executeFrameTool(store, singleTool, singleArgs);
+          sendJson(res, result.isError ? 400 : 200, { ok: !result.isError, ...result });
+          return;
+        }
+
+        const chainRequest: ToolChainRequest = {
+          steps: Array.isArray(body.steps) ? (body.steps as ToolChainRequest["steps"]) : undefined,
+          preset: typeof body.preset === "string" ? (body.preset as ToolChainRequest["preset"]) : undefined,
+          presetArgs:
+            body.presetArgs && typeof body.presetArgs === "object"
+              ? (body.presetArgs as Record<string, unknown>)
+              : undefined,
+          compact: body.compact !== false,
+          json: Boolean(body.json),
+        };
+
+        if (chainRequest.json) {
+          const chainToolResult = await executeFrameChainTool(
+            store,
+            chainRequest as unknown as Record<string, unknown>,
+          );
+          let parsed: unknown = chainToolResult.text;
+          try {
+            parsed = JSON.parse(chainToolResult.text);
+          } catch {
+            // keep text
+          }
+          sendJson(res, chainToolResult.isError ? 400 : 200, {
+            ok: !chainToolResult.isError,
+            result: parsed,
+            meta: chainToolResult.meta,
+          });
+          return;
+        }
+
+        const chain = await executeToolChain(store, chainRequest);
+        if (chainRequest.compact !== false) {
+          sendJson(res, chain.ok ? 200 : 400, {
+            ok: chain.ok,
+            sessionId: chain.sessionId,
+            totalTokens: chain.totalTokens,
+            totalMs: chain.totalMs,
+            compactText: chain.compactText,
+            steps: chain.steps.map((s) => ({
+              index: s.index,
+              tool: s.tool,
+              ok: s.ok,
+              tokens: s.tokens,
+              durationMs: s.durationMs,
+            })),
+          });
+          return;
+        }
+        sendJson(res, chain.ok ? 200 : 400, chain);
         return;
       }
 

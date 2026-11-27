@@ -36,6 +36,11 @@ When the `frameparse` MCP server is connected (stdio: `node /agent/dist/src/cli.
 
 7. **`frame_sessions({ action: "list" | "close" })`** — **Check token savings telemetry** (raw HTML tokens avoided vs compact frame tokens emitted) or close sessions.
 
+8. **`frame_chain({ preset | steps })`** — **Direct multi-step chain (one round-trip).**
+   - Presets: `orient_and_plan`, `query_then_inspect`, `plan_and_inspect`, `action_and_observe`.
+   - Custom `steps: [{ tool, args, as? }]` with variables: `$sessionId`, `$prev.ref`, `$prev.actionId`, `$steps.<alias>.ref`.
+   - Without MCP: `POST /api/chain` on the visualizer server, or `frameparse chain --preset ...`.
+
 ## CLI Fallback (when MCP is not mounted)
 
 ```bash
@@ -51,6 +56,9 @@ node /agent/dist/src/cli.js <url-or-file> --plan "search for laptops"
 
 # Post-action Frame Diff
 node /agent/dist/src/cli.js before.html --diff after.html
+
+# Multi-step chain (shared session, no MCP)
+node /agent/dist/src/cli.js chain --preset orient_and_plan --fixture ecommerce --goal "add to cart"
 ```
 
 ## Rules for Agents

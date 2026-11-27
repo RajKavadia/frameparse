@@ -63,7 +63,7 @@ const matches = session.plan("add to cart", { allowDestructive: false });
 
 ## Agentic-First MCP Server (Less Tokens, More Info)
 
-FrameParse ships with a **zero-dependency MCP server** supporting both **stdio** and **Streamable HTTP (`POST /mcp`)**, exposing 7 token-minimal tools over stateful cached page sessions:
+FrameParse ships with a **zero-dependency MCP server** supporting both **stdio** and **Streamable HTTP (`POST /mcp`)**, exposing 8 token-minimal tools over stateful cached page sessions:
 
 | MCP Tool | Purpose | Typical Cost |
 |---|---|---|
@@ -74,6 +74,18 @@ FrameParse ships with a **zero-dependency MCP server** supporting both **stdio**
 | `frame_inspect` | Vertical cross-layer lineage X-ray for any ref (`s#`, `t#`, `i#`, `w#`, `a#`) | ~100–200 tok |
 | `frame_diff` | Post-action delta (alerts, changed control states, new actions only) | ~40–150 tok |
 | `frame_sessions` | List cached sessions + cumulative token savings telemetry | ~80 tok |
+| `frame_chain` | Run multiple tools in one in-process chain (`preset` or `steps`, `$sessionId` / `$prev.*` vars) | Sum of steps |
+
+### Direct tool chains (without MCP JSON-RPC)
+
+The same session store and tool implementations power **`frame_chain`** and a direct HTTP API:
+
+- **MCP:** `tools/call` with `name: "frame_chain"` and `{ preset: "orient_and_plan", presetArgs: { fixture, goal } }` or a custom `steps[]`.
+- **HTTP:** `POST http://127.0.0.1:4173/api/chain` with the same JSON body (returns structured `steps` + `compactText`). Single-tool calls: `{ "tool": "frame_query", "arguments": { ... } }`.
+- **CLI:** `node dist/src/cli.js chain --preset query_then_inspect --fixture ecommerce --query warranty`
+- **Library:** `import { executeToolChain, executeFrameTool } from "frameparse"`
+
+Presets: `orient_and_plan`, `query_then_inspect`, `plan_and_inspect`, `action_and_observe`.
 
 ### Connect to Cursor / Claude Desktop
 

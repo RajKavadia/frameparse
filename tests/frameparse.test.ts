@@ -286,10 +286,11 @@ test("MCP Server (JSON-RPC 2.0): progressive open, query, budgeted read, plan, i
   assert.ok(init?.result);
   const toolsResp = await mcp.handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" });
   const tools = (toolsResp?.result as { tools: Array<{ name: string }> }).tools;
-  assert.equal(tools.length, 7);
+  assert.equal(tools.length, 8);
   assert.ok(tools.some((t) => t.name === "frame_open"));
   assert.ok(tools.some((t) => t.name === "frame_query"));
   assert.ok(tools.some((t) => t.name === "frame_diff"));
+  assert.ok(tools.some((t) => t.name === "frame_chain"));
 
   // 2. frame_open returns ONLY Frame 1 + sessionId
   const openResp = await mcp.handleMessage({
@@ -376,9 +377,55 @@ test("MCP Server (JSON-RPC 2.0): progressive open, query, budgeted read, plan, i
     };
     assert.match(diffJson.result.content[0].text, /Signed in successfully/);
     assert.match(diffJson.result.content[0].text, /Archive Workspace/);
+    const httpChain = await fetch(`${url}/api/chain`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        preset: "orient_and_plan",
+        presetArgs: { fixture: "ecommerce", goal: "add to cart" },
+      }),
+    });
+    assert.equal(httpChain.status, 200);
+    const chainJson = (await httpChain.json()) as { ok: boolean; compactText: string };
+    assert.equal(chainJson.ok, true);
+    assert.match(chainJson.compactText, /FRAME CHAIN/);
+    assert.match(chainJson.compactText, /add to cart/i);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+
+  const chainResp = await mcp.handleMessage({
+    jsonrpc: "2.0",
+    id: 8,
+    method: "tools/call",
+    params: {
+      name: "frame_chain",
+      arguments: {
+        preset: "query_then_inspect",
+        presetArgs: { fixture: "ecommerce", query: "warranty" },
+      },
+    },
+  });
+  const chainText = (chainResp?.result as { content: Array<{ text: string }> }).content[0].text;
+  assert.match(chainText, /FRAME CHAIN/);
+  assert.match(chainText, /LINEAGE FOR/);
+  assert.match(chainText, /warranty/i);
+});
+
+test("Direct tool chain: executeToolChain with $sessionId substitution", async () => {
+  const { SessionStore } = await import("../src/session-store.js");
+  const { executeToolChain } = await import("../src/tool-chain.js");
+  const store = new SessionStore();
+  const chain = await executeToolChain(store, {
+    steps: [
+      { tool: "frame_open", args: { fixture: "dashboard", sessionId: "c1" } },
+      { tool: "frame_query", args: { sessionId: "$sessionId", query: "workspace" } },
+    ],
+  });
+  assert.equal(chain.ok, true);
+  assert.equal(chain.sessionId, "c1");
+  assert.equal(chain.steps.length, 2);
+  assert.match(chain.steps[1].text, /workspace/i);
 });
 
 test("Gaps 1, 2, 4: Live DOM Snapshot handles SPAs, div-soup clickables, Shadow DOM, iframes, and real CSS visibility", () => {

@@ -12,7 +12,9 @@ import {
 import { planAction } from "./frame4-actions.js";
 import { startMcpStdioServer } from "./mcp-server.js";
 import { parsePageFrames } from "./pipeline.js";
+import { SessionStore } from "./session-store.js";
 import { startVisualizerServer } from "./server.js";
+import { executeToolChain, type ChainPresetName, type ToolChainStep } from "./tool-chain.js";
 import type { FrameLayer } from "./types.js";
 
 interface CliArgs {
@@ -80,6 +82,9 @@ function printHelp(): void {
 Usage:
   frameparse <file-or-url> [options]
   frameparse serve [--port 4173] [--host 127.0.0.1]
+  frameparse mcp
+  frameparse chain --preset <name> [--fixture <id>] [--goal "..."] [--json]
+  frameparse chain --file <chain.json>
   cat page.html | frameparse [options]
 
 Options:
@@ -120,6 +125,69 @@ async function main(): Promise<void> {
   const rawArgv = process.argv.slice(2);
   if (rawArgv[0] === "mcp") {
     startMcpStdioServer();
+    return;
+  }
+
+  if (rawArgv[0] === "chain") {
+    let preset: ChainPresetName | undefined;
+    let fixture: string | undefined;
+    let goal: string | undefined;
+    let query: string | undefined;
+    let chainFile: string | undefined;
+    let json = false;
+    let afterFixture: string | undefined;
+
+    for (let i = 1; i < rawArgv.length; i++) {
+      const token = rawArgv[i];
+      if (token === "--preset") preset = rawArgv[++i] as ChainPresetName;
+      else if (token === "--fixture") fixture = rawArgv[++i];
+      else if (token === "--goal") goal = rawArgv[++i];
+      else if (token === "--query") query = rawArgv[++i];
+      else if (token === "--file") chainFile = rawArgv[++i];
+      else if (token === "--json") json = true;
+      else if (token === "--after-fixture") afterFixture = rawArgv[++i];
+      else if (token === "-h" || token === "--help") {
+        printHelp();
+        return;
+      }
+    }
+
+    const store = new SessionStore();
+    let steps: ToolChainStep[] | undefined;
+    let chainPreset: ChainPresetName | undefined;
+    const presetArgs: Record<string, unknown> = {};
+
+    if (chainFile) {
+      const raw = await readFile(chainFile, "utf8");
+      const spec = JSON.parse(raw) as {
+        steps?: ToolChainStep[];
+        preset?: ChainPresetName;
+        presetArgs?: Record<string, unknown>;
+      };
+      steps = spec.steps;
+      chainPreset = spec.preset;
+      Object.assign(presetArgs, spec.presetArgs ?? {});
+    } else if (preset) {
+      chainPreset = preset;
+      if (fixture) presetArgs.fixture = fixture;
+      if (goal) presetArgs.goal = goal;
+      if (query) presetArgs.query = query;
+      if (afterFixture) presetArgs.afterFixture = afterFixture;
+    } else {
+      throw new Error("chain requires --preset <name> or --file <chain.json>");
+    }
+
+    const chain = await executeToolChain(store, {
+      steps,
+      preset: chainPreset,
+      presetArgs,
+    });
+    if (json) {
+      console.log(JSON.stringify(chain, null, 2));
+    } else {
+      console.log(chain.compactText);
+    }
+    if (!chain.ok) process.exitCode = 1;
     return;
   }
 
