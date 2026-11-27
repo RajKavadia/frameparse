@@ -1,109 +1,142 @@
 # FrameParse
 
-**Zero-AI, deterministic 4-layer webpage frame parser for fast AI agent browsing.**
+**Progressive, zero-LLM webpage observations for AI agents — Structure → Text → Interactables → Actions.**
 
-FrameParse decomposes any HTML webpage into **4 progressive, cross-referenced frames** in a few milliseconds with **zero LLM calls** and **zero runtime dependencies**:
-
-1. **Frame 1 — Structure (`s#`)**: Semantic landmarks (`header`, `nav`, `main`, `article`, `form`, `table`, `footer`), heading outline, per-region text/interactable counts, and structural hash.
-2. **Frame 2 — Text (`t#`)**: Clean, deduplicated readable content (`heading`, `paragraph`, `list_item`, `table_row`, `alert`) anchored to its parent Frame 1 region (`@s#`), with `<script>`, `<style>`, and hidden DOM noise stripped.
-3. **Frame 3 — Interactables (`i#`)**: Canonical registry of interactive controls (`link`, `button`, `input`, `select`, `checkbox`, `form`, `tab`, etc.) with resolved accessible names, states (`required`, `disabled`, `checked`, `expanded`), `<select>` options, form links, and deterministic CSS selectors.
-4. **Frame 4 — Actions (`w#`, `a#`)**: Deterministic specification of **what each control or multi-step form workflow will do**, including verb, intent category (`search`, `auth`, `commerce`, `crud_delete`, `download`, etc.), side-effect safety tier (`read`, `navigate`, `mutate`, `destructive`), preconditions, typed parameters, and executable browser steps — plus a **zero-AI action planner** (`planAction`) and **frame differ** (`diffFrames`).
-
-## Quick Start
+Most browser agents still dump megabytes of HTML into context. FrameParse parses a page once (milliseconds, **no model calls**), returns a compact landmark map first, then lets agents pull only the layers they need via MCP, HTTP, CLI, or the TypeScript library.
 
 ```bash
-npm install
-npm run build
-npm test
-```
-
-## CLI Usage
-
-```bash
-# 1. Inspect Frame 1 (Structure) first
+git clone https://github.com/RajKavadia/frameparse.git && cd frameparse
+npm install && npm run build && npm test
 node dist/src/cli.js tests/fixtures/ecommerce.html --layer 1 --stats
-
-# 2. Pull Frame 2 (Text) only for a specific landmark region (e.g. s4)
-node dist/src/cli.js tests/fixtures/ecommerce.html --layer 2 --region s4
-
-# 3. Inspect Frame 3 (Interactables) or Frame 4 (Actions)
-node dist/src/cli.js tests/fixtures/ecommerce.html --layer 4 --url https://novastore.example.com
-
-# 4. Run the zero-AI action planner for a goal
-node dist/src/cli.js tests/fixtures/ecommerce.html --plan "search for laptops"
-
-# 5. Diff two page states after executing an action
-node dist/src/cli.js tests/fixtures/dashboard.html --diff tests/fixtures/dashboard-after.html
-
-# 6. Launch the interactive 3D Layered Frame Visualizer
-npm run visualizer
-# or: node dist/src/cli.js serve --port 4173
+npm run visualizer   # http://127.0.0.1:4173 — 3D stack + MCP at /mcp
 ```
 
-## 3D Layered Frame Visualizer
+| Goal | Start here |
+|------|------------|
+| Cursor / Claude MCP | [`mcp.json.example`](mcp.json.example) → `node dist/src/cli.js mcp` |
+| Smallest first read | `frame_open` → Frame 1 only (~90–250 tok on fixtures) |
+| Find a fact on the page | `frame_query` or region-scoped `frame_read` |
+| Plan a click/fill flow | `frame_plan` → workflows `w#` + steps (use **your** browser runner) |
+| After a mutation | `frame_diff` — delta, not full re-parse |
+| Multi-step in one call | `frame_chain` or `POST /api/chain` |
 
-Run `npm run visualizer` and open `http://127.0.0.1:4173` to inspect all 4 frames stacked in 3D space:
+**Benchmarks (reproducible):** run `npm run benchmark` — see [docs/BENCHMARKS.md](docs/BENCHMARKS.md). On a synthetic 251 KB SPA fixture: Frame 1 **196 tok** vs **64,257 tok** raw (~**328×** on the structure layer); MCP “open + query” **447 tok** vs **64,257** raw in the harness.
 
-- **Pass any webpage**: Enter any live URL, paste raw HTML, or pick a built-in sample.
-- **See what's beneath each frame**: Drag to orbit in 3D, expand the **Z-Axis Layer Gap**, drag the **Peel Upper Frames** slider to lift Frame 4/3/2 off the stack, or adjust per-layer opacity.
-- **Cross-layer X-Ray**: Hover or click any card on any frame (e.g., a Frame 4 workflow `w1`) to illuminate its exact vertical lineage down through Frame 3 (Interactables), Frame 2 (Text), and Frame 1 (Structure) with glowing 3D connector beams.
-- **Zero-AI Planner**: Enter a goal like `"search for laptops"` or `"add to cart"` to highlight the winning workflow and everything beneath it.
+![Frame 1 structure (e-commerce fixture)](screenshots/01-ecommerce-frame1-structure.png)
 
-## Library Usage
+## What it is (and is not)
+
+**FrameParse is an observation and planning layer:** deterministic HTML/DOM → cross-linked frames + MCP session cache + zero-AI `planAction`.
+
+**It is not** a built-in browser driver. Frame 4 `steps` include CSS selectors for Playwright, Puppeteer, CDP, or similar. For live SPAs, use the MCP resource `frameparse://browser-extractor.js`, capture a post-hydration snapshot, and pass it to `frame_open`.
+
+## Four frames
+
+1. **Frame 1 — Structure (`s#`)** — Landmarks, heading outline, repeated-card folding, region counts.
+2. **Frame 2 — Text (`t#`)** — Readable blocks anchored to `@s#`; strips script/style/hidden noise.
+3. **Frame 3 — Interactables (`i#`)** — Controls with names, states, options, selectors.
+4. **Frame 4 — Actions (`w#`, `a#`)** — Workflows, effect tiers (`read` | `navigate` | `mutate` | `destructive`), planner, diff.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph inputs [Inputs]
+    URL[URL fetch]
+    HTML[HTML string]
+    SNAP[Live DOM snapshot]
+  end
+  subgraph core [Zero-AI parser]
+    P[HTML/DOM adapter]
+    F1[Frame 1 Structure]
+    F2[Frame 2 Text]
+    F3[Frame 3 Interactables]
+    F4[Frame 4 Actions]
+  end
+  subgraph agent [Agent interfaces]
+    MCP[MCP stdio and HTTP /mcp]
+    CHAIN[frame_chain and /api/chain]
+    CLI[CLI and library]
+    VIZ[3D visualizer]
+  end
+  URL --> P
+  HTML --> P
+  SNAP --> P
+  P --> F1 --> F2 --> F3 --> F4
+  F1 --> MCP
+  F4 --> MCP
+  MCP --> CHAIN
+  F1 --> VIZ
+```
+
+## CLI
+
+```bash
+node dist/src/cli.js tests/fixtures/ecommerce.html --layer 2 --region s4
+node dist/src/cli.js tests/fixtures/ecommerce.html --plan "add to cart"
+node dist/src/cli.js tests/fixtures/dashboard.html --diff tests/fixtures/dashboard-after.html
+node dist/src/cli.js chain --preset orient_and_plan --fixture ecommerce --goal "add to cart"
+npm run visualizer
+```
+
+## 3D visualizer
+
+Open `http://127.0.0.1:4173` after `npm run visualizer`: orbit stacked layers, peel upper frames, X-ray lineage from any card, try the built-in zero-AI planner on sample pages.
+
+## Library
 
 ```ts
-import { FrameSession, parsePageFrames, planAction, diffFrames } from "frameparse";
+import { FrameSession, parsePageFrames, executeToolChain } from "frameparse";
 
-const session = new FrameSession(html, { url: "https://novastore.example.com" });
+const session = new FrameSession(html, { url: "https://example.com" });
 const frame1 = session.getStructure();
-const mainRegion = frame1.landmarks.find((l) => l.role === "main");
-const frame2 = session.getText(mainRegion ? [mainRegion.id] : undefined);
 const matches = session.plan("add to cart", { allowDestructive: false });
 ```
 
-## Agentic-First MCP Server (Less Tokens, More Info)
+## MCP server (8 tools)
 
-FrameParse ships with a **zero-dependency MCP server** supporting both **stdio** and **Streamable HTTP (`POST /mcp`)**, exposing 8 token-minimal tools over stateful cached page sessions:
+| Tool | Purpose |
+|------|---------|
+| `frame_open` | Parse once; return Frame 1 + `sessionId` |
+| `frame_query` | Cross-layer keyword search |
+| `frame_read` | Budgeted layer read (`maxTokens`, pagination) |
+| `frame_plan` | Goal → ranked actions/workflows |
+| `frame_inspect` | Lineage for any `s#`/`t#`/`i#`/`w#`/`a#` |
+| `frame_diff` | Post-action delta; optional outcome cache |
+| `frame_sessions` | List/close sessions + telemetry |
+| `frame_chain` | Multi-step chain or presets |
 
-| MCP Tool | Purpose | Typical Cost |
-|---|---|---|
-| `frame_open` | Parse URL/HTML once, cache `sessionId`, return **Frame 1 (Structure)** only | ~120–250 tok |
-| `frame_query` | Zero-AI cross-layer search for facts, prices, controls, or actions | ~80–180 tok |
-| `frame_read` | Progressive region-scoped layer reader with hard `maxTokens` + pagination | Budgeted |
-| `frame_plan` | Zero-AI goal-to-action planner with safety tiers & executable steps | ~120–250 tok |
-| `frame_inspect` | Vertical cross-layer lineage X-ray for any ref (`s#`, `t#`, `i#`, `w#`, `a#`) | ~100–200 tok |
-| `frame_diff` | Post-action delta (alerts, changed control states, new actions only) | ~40–150 tok |
-| `frame_sessions` | List cached sessions + cumulative token savings telemetry | ~80 tok |
-| `frame_chain` | Run multiple tools in one in-process chain (`preset` or `steps`, `$sessionId` / `$prev.*` vars) | Sum of steps |
-
-### Direct tool chains (without MCP JSON-RPC)
-
-The same session store and tool implementations power **`frame_chain`** and a direct HTTP API:
-
-- **MCP:** `tools/call` with `name: "frame_chain"` and `{ preset: "orient_and_plan", presetArgs: { fixture, goal } }` or a custom `steps[]`.
-- **HTTP:** `POST http://127.0.0.1:4173/api/chain` with the same JSON body (returns structured `steps` + `compactText`). Single-tool calls: `{ "tool": "frame_query", "arguments": { ... } }`.
-- **CLI:** `node dist/src/cli.js chain --preset query_then_inspect --fixture ecommerce --query warranty`
-- **Library:** `import { executeToolChain, executeFrameTool } from "frameparse"`
-
-Presets: `orient_and_plan`, `query_then_inspect`, `plan_and_inspect`, `action_and_observe`.
-
-### Connect to Cursor / Claude Desktop
-
-See `mcp.json.example`:
+**Chains:** MCP `frame_chain`, HTTP `POST /api/chain`, CLI `chain`. Presets: `orient_and_plan`, `query_then_inspect`, `plan_and_inspect`, `action_and_observe`. Variables: `$sessionId`, `$prev.ref`, `$steps.<alias>.actionId`.
 
 ```json
 {
   "mcpServers": {
     "frameparse": {
       "command": "node",
-      "args": ["/agent/dist/src/cli.js", "mcp"]
+      "args": ["/absolute/path/to/frameparse/dist/src/cli.js", "mcp"]
     }
   }
 }
 ```
 
-Or connect via Streamable HTTP while running `npm run visualizer` at `http://127.0.0.1:4173/mcp`.
+Streamable HTTP: `POST http://127.0.0.1:4173/mcp` while the visualizer is running.
 
-## Agent Skill
+Agent skill: [`skills/frameparse/SKILL.md`](skills/frameparse/SKILL.md).
 
-The AI agent skill is included at `skills/frameparse/SKILL.md` (and installed to `/cursor/stores/user/skills/frameparse/SKILL.md`).
+## FAQ
+
+**Does FrameParse click buttons?** No — it returns selectors and steps; you execute them elsewhere.
+
+**Are token counts exact for GPT/Claude?** No — `estimateTokens` is a fast heuristic; use benchmarks for relative savings.
+
+**Can it log into sites via MCP URL fetch?** Not with cookies/auth; use a live DOM snapshot from a browser you control.
+
+**Is there an npm package?** Install from git for now (`v0.2.0` tag); npm publish is planned.
+
+## Limitations
+
+Heuristic action inference (confirm `destructive` with users). Server-side `frame_open` URL fetch should run in trusted environments (SSRF). Early OSS — contributions welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

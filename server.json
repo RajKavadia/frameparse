@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.rajkavadia/frameparse",
+  "description": "Zero-LLM 4-layer webpage parser (Structure, Text, Interactables, Actions) and MCP server for token-budgeted agent browsing.",
+  "repository": {
+    "url": "https://github.com/RajKavadia/frameparse",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "frameparse",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "node",
+      "runtimeArguments": [
+        {
+          "type": "positional",
+          "valueHint": "path/to/frameparse/dist/src/cli.js"
+        },
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": []
+    }
+  ]
+}

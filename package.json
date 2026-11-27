@@ -1,6 +1,6 @@
 {
   "name": "frameparse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zero-AI, deterministic 4-layer webpage frame parser (Structure, Text, Interactables, Actions) for fast AI agent browsing",
   "type": "module",
   "main": "./dist/src/index.js",
