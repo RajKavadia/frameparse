@@ -1,0 +1,19 @@
+{
+  "name": "frameparse",
+  "owner": {
+    "name": "Raj Kavadia",
+    "email": "rajkavadia78@gmail.com"
+  },
+  "metadata": {
+    "description": "FrameParse Cursor plugins — zero-AI webpage frames + MCP for agent browsing",
+    "version": "0.1.0",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "frameparse",
+      "source": "frameparse",
+      "description": "Zero-AI 4-layer webpage frames with progressive MCP observe and CDP click/scroll via i# / a# / w# refs"
+    }
+  ]
+}

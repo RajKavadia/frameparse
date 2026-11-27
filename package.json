@@ -6,7 +6,7 @@
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "bin": {
-    "frameparse": "./dist/src/cli.js"
+    "frameparse": "bin/frameparse.js"
   },
   "exports": {
     ".": {
@@ -14,28 +14,65 @@
       "import": "./dist/src/index.js"
     }
   },
+  "files": [
+    "bin",
+    "dist/src",
+    "visualizer",
+    "skills",
+    "mcp.json.example",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/tests/frameparse.test.js",
+    "prepublishOnly": "npm test",
+    "test": "npm run build && node --test dist/tests/*.test.js",
     "benchmark": "npm run build && node dist/benchmarks/benchmark.js",
+    "benchmark:compare": "npm run build && node dist/benchmarks/compare-scrapers.js",
+    "benchmark:automation": "npm run build && node dist/benchmarks/compare-automation.js",
+    "cdp:extractor": "node scripts/cdp-frameparse-filter.mjs --print-extractor",
+    "cdp:filter": "node scripts/cdp-frameparse-filter.mjs",
     "cli": "node dist/src/cli.js",
     "mcp": "npm run build && node dist/src/cli.js mcp",
-    "visualizer": "npm run build && node dist/src/cli.js serve"
+    "visualizer": "npm run build && node dist/src/cli.js serve",
+    "validate:plugins": "node scripts/validate-plugins.mjs"
   },
   "keywords": [
+    "mcp",
     "ai-agents",
+    "playwright",
+    "browser-automation",
     "html-parser",
     "dom-distillation",
     "web-automation",
     "layered-frames",
-    "deterministic"
+    "deterministic",
+    "cdp"
   ],
+  "author": "Raj Kavadia",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RajKavadia/frameparse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RajKavadia/frameparse/issues"
+  },
+  "homepage": "https://github.com/RajKavadia/frameparse#readme",
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@mozilla/readability": "^0.6.0",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^22.0.0",
+    "cheerio": "^1.2.0",
+    "gifenc": "^1.0.3",
+    "jsdom": "^31.0.1",
+    "playwright": "^1.65.1",
+    "pngjs": "^7.0.0",
+    "puppeteer": "^25.19.0",
     "typescript": "^5.7.0"
   }
 }

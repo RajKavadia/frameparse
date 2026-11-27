@@ -28,7 +28,7 @@ npm run visualizer   # http://127.0.0.1:4173 — 3D stack + MCP at /mcp
 
 **FrameParse is an observation and planning layer:** deterministic HTML/DOM → cross-linked frames + MCP session cache + zero-AI `planAction`.
 
-**It is not** a built-in browser driver. Frame 4 `steps` include CSS selectors for Playwright, Puppeteer, CDP, or similar. For live SPAs, use the MCP resource `frameparse://browser-extractor.js`, capture a post-hydration snapshot, and pass it to `frame_open`.
+**Optional CDP actuation:** MCP tools `frame_browser`, `frame_act`, and `frame_scroll` connect to Chrome DevTools Protocol (Playwright/Puppeteer-backed driver) to click, fill, and scroll by Frame refs, then `frame_diff` by default. For parse-only workflows, use static HTML, URL fetch, or the MCP resource `frameparse://browser-extractor.js` snapshot with `frame_open`.
 
 ## Four frames
 
@@ -93,7 +93,11 @@ const frame1 = session.getStructure();
 const matches = session.plan("add to cart", { allowDestructive: false });
 ```
 
-## MCP server (8 tools)
+## Cursor plugin
+
+Install from [`plugins/frameparse`](plugins/frameparse) (see `plugins/frameparse/.cursor-plugin/plugin.json`) for bundled MCP config, rules, and skills.
+
+## MCP server (11 tools)
 
 | Tool | Purpose |
 |------|---------|
@@ -105,6 +109,9 @@ const matches = session.plan("add to cart", { allowDestructive: false });
 | `frame_diff` | Post-action delta; optional outcome cache |
 | `frame_sessions` | List/close sessions + telemetry |
 | `frame_chain` | Multi-step chain or presets |
+| `frame_browser` | CDP connect/launch/navigate/open snapshot |
+| `frame_act` | Execute action by `ref` or `goal` |
+| `frame_scroll` | Scroll by ref or delta |
 
 **Chains:** MCP `frame_chain`, HTTP `POST /api/chain`, CLI `chain`. Presets: `orient_and_plan`, `query_then_inspect`, `plan_and_inspect`, `action_and_observe`. Variables: `$sessionId`, `$prev.ref`, `$steps.<alias>.actionId`.
 

@@ -2,7 +2,7 @@
   "mcpServers": {
     "frameparse": {
       "command": "node",
-      "args": ["/absolute/path/to/frameparse/dist/src/cli.js", "mcp"]
+      "args": ["C:/path/to/frameparse/dist/src/cli.js", "mcp"]
     },
     "frameparse-http": {
       "url": "http://127.0.0.1:4173/mcp"

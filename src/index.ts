@@ -38,3 +38,14 @@ export {
   type FrameToolName,
   type FrameToolResult,
 } from "./tools.js";
+export {
+  FRAMEPARSE_PAGE_RUNTIME,
+  resolveAct,
+  resolveScroll,
+  CdpBrowserDriver,
+  getSharedDriver,
+  executeAct,
+  executeScroll,
+  executeSteps,
+} from "./act/index.js";
+export type { ActParams, ResolvedAct, BrowserDriver, ActExecutionResult } from "./act/index.js";

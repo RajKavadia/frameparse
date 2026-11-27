@@ -274,13 +274,39 @@ export interface ActionParameter {
   pattern?: string;
 }
 
+/** Browser ops FrameParse can plan and execute from frame refs. */
+export type ExecutionOp =
+  | "fill"
+  | "select"
+  | "toggle"
+  | "click"
+  | "dblclick"
+  | "submit"
+  | "navigate"
+  | "hover"
+  | "focus"
+  | "type"
+  | "press"
+  | "scroll_into_view"
+  | "scroll_by"
+  | "scroll_to"
+  | "wait";
+
 export interface ExecutionStep {
-  op: "fill" | "select" | "toggle" | "click" | "submit" | "navigate";
+  op: ExecutionOp;
   ref: string;
   selector: string;
   param?: string;
   value?: string;
   url?: string;
+  /** For scroll_by / scroll_to */
+  dx?: number;
+  dy?: number;
+  x?: number;
+  y?: number;
+  /** wait ms, or press key name */
+  key?: string;
+  timeoutMs?: number;
 }
 
 export interface ActionDestination {
